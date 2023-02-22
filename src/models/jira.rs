@@ -10,6 +10,41 @@
     serde::Serialize,
     serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectRoleUser {
+    pub account_id: String,
+}
+
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct RoleActor {
+    pub display_name: String,
+    pub actor_user: ProjectRoleUser,
+}
+
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct ProjectDetails {
     pub id: String,
 }
@@ -26,7 +61,7 @@ pub struct ProjectDetails {
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct ProjectRoleScope {
+pub struct Scope {
     pub project: ProjectDetails,
 }
 
@@ -45,7 +80,8 @@ pub struct ProjectRoleScope {
 )]
 pub struct ProjectRole {
     pub id: i64,
-    pub scope: Option<ProjectRoleScope>,
+    pub actors: Option<Vec<RoleActor>>,
+    pub scope: Option<Scope>,
 }
 
 #[serde_with::skip_serializing_none]

@@ -39,7 +39,29 @@ async fn main() -> std::io::Result<()> {
         )
         .await;
 
-    println!("{:?}", project_roles);
+    for project_role in project_roles {
+        if project_role.scope.is_none() {
+            continue;
+        }
+
+        if robot.credential.project_id != project_role.scope.unwrap().project.id {
+            continue;
+        }
+
+        let mut project_role_actors = client_service
+            .get_jira_project_role_actors(
+                &robot.credential.platform_email,
+                &robot.credential.platform_api_key,
+                &robot.credential.project_id,
+                project_role.id,
+            )
+            .await;
+
+        for project_role_actor in project_role_actors {
+            println!("{:?}", project_role_actor);
+        }
+        println!("");
+    }
 
     // let mut users = client_service
     //     .get_jira_users(&std::env::var("CLOUD_SESSION_TOKEN").unwrap())
