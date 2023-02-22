@@ -6,6 +6,8 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
+    let client_service = utils::client::Client::new();
+
     let robot = models::robot::Robot {
         id: mongodb::bson::oid::ObjectId::new(),
         info: models::robot::RobotInfo {
@@ -23,14 +25,18 @@ async fn main() -> std::io::Result<()> {
             active: false,
             delay: 14,
             last_active: 14,
-            check_double_name: false,
-            check_active_status: false,
-            check_double_email: false,
+            check_double_name: true,
+            check_active_status: true,
+            check_double_email: true,
             last_updated: chrono::Utc::now(),
         },
     };
 
-    let client_service = utils::client::Client::new();
+    let users = client_service
+        .get_jira_users(&robot.credential.cloud_session_token)
+        .await;
+
+    let mut robot_users: Vec<models::jira::User> = Vec::new();
 
     let project_roles = client_service
         .get_jira_project_roles(
@@ -48,7 +54,7 @@ async fn main() -> std::io::Result<()> {
             continue;
         }
 
-        let mut project_role_actors = client_service
+        let role_actors = client_service
             .get_jira_project_role_actors(
                 &robot.credential.platform_email,
                 &robot.credential.platform_api_key,
@@ -57,20 +63,54 @@ async fn main() -> std::io::Result<()> {
             )
             .await;
 
-        for project_role_actor in project_role_actors {
-            println!("{:?}", project_role_actor);
+        for role_actor in role_actors {
+            if !robot_users
+                .iter()
+                .any(|user| user.id == role_actor.actor_user.account_id)
+            {
+                let user = users
+                    .iter()
+                    .find(|user| user.id == role_actor.actor_user.account_id);
+                if user.is_none() {
+                    continue;
+                }
+                robot_users.push(user.unwrap().clone());
+            }
         }
-        println!("");
     }
 
-    // let mut users = client_service
-    //     .get_jira_users(&std::env::var("CLOUD_SESSION_TOKEN").unwrap())
-    //     .await;
-    // users.sort_by_key(|e| e.created);
+    robot_users.sort_by_key(|user| user.created);
 
-    // let filtered_users = robot.filter_jira_user(&users);
+    let filtered_users = robot.filter_jira_user(&robot_users);
 
-    // println!("{:?}", filtered_users);
+    println!("\n\nValid Users");
+    for user in &robot_users {
+        let purge_data = filtered_users.users.get(&user.id.clone());
+        if purge_data.is_some() {
+            continue;
+        }
+
+        println!(
+            "[{:?} | {:?}] {:?}",
+            &user.id, user.created, &user.display_name
+        );
+    }
+
+    println!("\n\nInvalid Users");
+    for user in &robot_users {
+        let purge_data = filtered_users.users.get(&user.id.clone());
+        if purge_data.is_none() {
+            continue;
+        }
+
+        println!(
+            "[{:?} | {:?}] {:?} | {:?}",
+            &user.id,
+            user.created,
+            &user.display_name,
+            purge_data.unwrap().reasons.data
+        );
+    }
 
     return actix_web::HttpServer::new(move || {
         actix_web::App::new()

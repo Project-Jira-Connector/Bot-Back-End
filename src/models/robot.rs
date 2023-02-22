@@ -107,8 +107,8 @@ pub struct Robot {
 impl Robot {
     pub fn filter_jira_user(&self, users: &Vec<models::jira::User>) -> models::purge::PurgeUsers {
         let mut purge_users = models::purge::PurgeUsers::new();
-        self.filter_inactivity(users, &mut purge_users);
         self.filter_duplicate(users, &mut purge_users);
+        self.filter_inactivity(users, &mut purge_users);
         return purge_users;
     }
 
@@ -123,9 +123,32 @@ impl Robot {
             for other_user_index in user_index + 1..users.len() {
                 let other_user = &users[other_user_index];
 
-                if self.filter_email(user, other_user, 0.8) {}
+                let mut purge_data_cached: Option<&mut models::purge::PurgeData> = None;
 
-                if self.filter_name(user, other_user, 0.8) {}
+                if self.filter_email(user, other_user, 0.8) {
+                    purge_data_cached = Some(purge_users.push(
+                        other_user,
+                        self,
+                        models::purge::PurgeReason::DoubleEmail,
+                    ));
+                }
+
+                if self.filter_name(user, other_user, 0.8) {
+                    match purge_data_cached {
+                        Some(purge_data) => {
+                            purge_data
+                                .reasons
+                                .push(models::purge::PurgeReason::DoubleName);
+                        }
+                        None => {
+                            purge_users.push(
+                                other_user,
+                                self,
+                                models::purge::PurgeReason::DoubleName,
+                            );
+                        }
+                    };
+                }
             }
         }
     }
@@ -159,18 +182,18 @@ impl Robot {
         purge_users: &mut models::purge::PurgeUsers,
     ) {
         for user in users {
-            let mut purge_data: Option<&mut models::purge::PurgeData> = None;
+            let mut purge_data_cached: Option<&mut models::purge::PurgeData> = None;
 
             if self.filter_last_active(user) {
-                purge_data =
+                purge_data_cached =
                     Some(purge_users.push(user, self, models::purge::PurgeReason::LastActive));
             }
 
             if self.filter_active_status(user) {
-                match purge_data {
+                match purge_data_cached {
                     Some(purge_data) => {
                         purge_data
-                            .reason
+                            .reasons
                             .push(models::purge::PurgeReason::ActiveStatus);
                     }
                     None => {
