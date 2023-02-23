@@ -7,13 +7,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> Self {
+    pub fn new(mongodb_addr: &String, mongodb_port: i16) -> Self {
         return Self {
             reqwest: reqwest::Client::new(),
             mongodb: futures::executor::block_on(mongodb::Client::with_uri_str(format!(
                 "mongodb://{}:{}",
-                std::env::var("MONGODB_ADDRESS").unwrap(),
-                std::env::var("MONGODB_PORT").unwrap()
+                mongodb_addr, mongodb_port
             )))
             .unwrap(),
         };
