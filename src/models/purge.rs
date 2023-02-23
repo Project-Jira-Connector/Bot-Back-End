@@ -149,7 +149,7 @@ impl PurgeUsers {
                 user: PurgeUser {
                     user_id: user.id.clone(),
                 },
-                robot: PurgeRobot { id: robot.id },
+                robot: PurgeRobot { id: robot.id.unwrap() },
                 time: PurgeScheduler {
                     last_updated: robot.scheduler.last_updated,
                 },

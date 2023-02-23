@@ -1,4 +1,5 @@
 mod models;
+mod routes;
 mod utils;
 
 #[actix_web::main]
@@ -129,6 +130,13 @@ async fn main() -> std::io::Result<()> {
         actix_web::App::new()
             .app_data(actix_web::web::Data::new(client_service.clone()))
             .wrap(actix_web::middleware::Logger::default())
+            .service(
+                actix_web::web::resource("/robots")
+                    .route(actix_web::web::get().to(routes::robots::get))
+                    .route(actix_web::web::post().to(routes::robots::post))
+                    .route(actix_web::web::patch().to(routes::robots::patch))
+                    .route(actix_web::web::delete().to(routes::robots::delete)),
+            )
     })
     .bind((bind_addr, bind_port))?
     .run()

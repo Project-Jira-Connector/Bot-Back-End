@@ -119,4 +119,76 @@ impl Client {
 
         return data.unwrap().actors.unwrap();
     }
+
+    pub async fn add_robot(
+        &self,
+        robot: &models::robot::Robot,
+    ) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
+        return self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("robots")
+            .insert_one(mongodb::bson::to_document(&robot).unwrap(), None)
+            .await;
+    }
+
+    pub async fn get_robots(
+        &self,
+        robot: models::robot::RobotQuery,
+    ) -> Option<Vec<models::robot::Robot>> {
+        let results = self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("robots")
+            .find(mongodb::bson::to_document(&robot).unwrap(), None)
+            .await;
+        if results.is_err() {
+            return None;
+        }
+
+        let documents = futures::TryStreamExt::try_collect::<Vec<_>>(results.unwrap()).await;
+        if documents.is_err() {
+            return None;
+        }
+
+        let json = serde_json::to_string(&documents.unwrap());
+        if json.is_err() {
+            return None;
+        }
+
+        let robots = serde_json::from_str(json.unwrap().as_str());
+        if robots.is_err() {
+            return None;
+        }
+
+        return Some(robots.unwrap());
+    }
+
+    pub async fn patch_robot(
+        &self,
+        robot: &models::robot::RobotQuery,
+    ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
+        return self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("robots")
+            .update_one(
+                mongodb::bson::doc! {"_id":robot.id},
+                mongodb::bson::doc! {"$set":mongodb::bson::to_document(&robot).unwrap()},
+                None,
+            )
+            .await;
+    }
+
+    pub async fn delete_robot(
+        &self,
+        robot: &models::robot::RobotQuery,
+    ) -> Result<mongodb::results::DeleteResult, mongodb::error::Error> {
+        return self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("robots")
+            .delete_one(mongodb::bson::to_document(&robot).unwrap(), None)
+            .await;
+    }
 }

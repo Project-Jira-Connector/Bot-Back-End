@@ -37,6 +37,24 @@ pub struct RobotInfo {
     pub description: String,
 }
 
+#[serde_with::skip_serializing_none]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct RobotInfoQuery {
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+
 #[derive(
     PartialEq,
     Eq,
@@ -56,6 +74,28 @@ pub struct RobotCredential {
     pub platform_type: PlatformType,
     pub cloud_session_token: String,
     pub project_id: String,
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct RobotCredentialQuery {
+    pub platform_email: Option<String>,
+    pub platform_api_key: Option<String>,
+    pub platform_type: Option<PlatformType>,
+    pub cloud_session_token: Option<String>,
+    pub project_id: Option<String>,
 }
 
 #[derive(
@@ -81,6 +121,31 @@ pub struct RobotScheduler {
     pub last_updated: chrono::DateTime<chrono::Utc>,
 }
 
+#[serde_with::skip_serializing_none]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct RobotSchedulerQuery {
+    pub active: Option<bool>,
+    pub delay: Option<i64>,
+    pub last_active: Option<i64>,
+    pub check_double_name: Option<bool>,
+    pub check_double_email: Option<bool>,
+    pub check_active_status: Option<bool>,
+    pub last_updated: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[serde_with::skip_serializing_none]
 #[derive(
     PartialEq,
     Eq,
@@ -95,13 +160,37 @@ pub struct RobotScheduler {
 )]
 pub struct Robot {
     #[serde(rename = "_id")]
-    pub id: mongodb::bson::oid::ObjectId,
+    pub id: Option<mongodb::bson::oid::ObjectId>,
     #[serde(flatten)]
     pub info: RobotInfo,
     #[serde(flatten)]
     pub credential: RobotCredential,
     #[serde(flatten)]
     pub scheduler: RobotScheduler,
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct RobotQuery {
+    #[serde(rename = "_id")]
+    pub id: Option<mongodb::bson::oid::ObjectId>,
+    #[serde(flatten)]
+    pub info: RobotInfoQuery,
+    #[serde(flatten)]
+    pub credential: RobotCredentialQuery,
+    #[serde(flatten)]
+    pub scheduler: RobotSchedulerQuery,
 }
 
 impl Robot {
