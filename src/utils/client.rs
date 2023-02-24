@@ -191,4 +191,22 @@ impl Client {
             .delete_one(mongodb::bson::to_document(&robot).unwrap(), None)
             .await;
     }
+
+    pub async fn add_purge(
+        &self,
+        purge: &models::purge::PurgeData,
+    ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
+        return self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("purges")
+            .update_one(
+                mongodb::bson::doc! {"user": mongodb::bson::to_document(&purge.user).unwrap()},
+                mongodb::bson::doc! {"$setOnInsert": mongodb::bson::to_document(purge).unwrap()},
+                mongodb::options::UpdateOptions::builder()
+                    .upsert(true)
+                    .build(),
+            )
+            .await;
+    }
 }

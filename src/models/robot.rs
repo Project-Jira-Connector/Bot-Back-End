@@ -193,8 +193,154 @@ pub struct RobotQuery {
     pub scheduler: RobotSchedulerQuery,
 }
 
+impl RobotQuery {
+    pub fn new() -> Self {
+        return Self {
+            id: None,
+            info: RobotInfoQuery {
+                name: None,
+                description: None,
+            },
+            credential: RobotCredentialQuery {
+                platform_email: None,
+                platform_api_key: None,
+                platform_type: None,
+                cloud_session_token: None,
+                project_id: None,
+            },
+            scheduler: RobotSchedulerQuery {
+                active: None,
+                delay: None,
+                last_active: None,
+                check_double_name: None,
+                check_double_email: None,
+                check_active_status: None,
+                last_updated: None,
+            },
+        };
+    }
+}
+
+impl From<&mut Robot> for RobotQuery {
+    fn from(robot: &mut Robot) -> Self {
+        return RobotQuery {
+            id: robot.id,
+            info: RobotInfoQuery {
+                name: Some(robot.info.name.clone()),
+                description: Some(robot.info.description.clone()),
+            },
+            credential: RobotCredentialQuery {
+                platform_email: Some(robot.credential.platform_email.clone()),
+                platform_api_key: Some(robot.credential.platform_api_key.clone()),
+                platform_type: Some(robot.credential.platform_type),
+                cloud_session_token: Some(robot.credential.cloud_session_token.clone()),
+                project_id: Some(robot.credential.project_id.clone()),
+            },
+            scheduler: RobotSchedulerQuery {
+                active: Some(robot.scheduler.active),
+                delay: Some(robot.scheduler.delay),
+                last_active: Some(robot.scheduler.last_active),
+                check_double_name: Some(robot.scheduler.check_double_name),
+                check_double_email: Some(robot.scheduler.check_double_email),
+                check_active_status: Some(robot.scheduler.check_active_status),
+                last_updated: Some(robot.scheduler.last_updated),
+            },
+        };
+    }
+}
+
 impl Robot {
-    pub fn filter_jira_user(&self, users: &Vec<models::jira::User>) -> models::purge::PurgeUsers {
+    pub async fn update(
+        &mut self,
+        client: &utils::client::Client,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> bool {
+        if !self.scheduler.active || self.scheduler.delay <= 0 {
+            return false;
+        }
+
+        if now <= self.scheduler.last_updated + chrono::Duration::days(self.scheduler.delay) {
+            return false;
+        } else {
+            self.scheduler.last_updated = now;
+        }
+
+        let robot_users = self.get_users(client).await;
+        let filtered_users = self.filter_jira_user(&robot_users);
+        for data in filtered_users.get() {
+            match client.add_purge(data).await {
+                Ok(result) => {
+                    if result.matched_count <= 0 {
+                        println!(
+                            "[{:?}] {:?} has been queued for purging. ({:?})",
+                            now, data.user.display_name, data.reasons.data
+                        );
+                    }
+                }
+                Err(error) => {}
+            }
+        }
+
+        return true;
+    }
+
+    async fn get_users(&self, client: &utils::client::Client) -> Vec<models::jira::User> {
+        let users = client
+            .get_jira_users(&self.credential.cloud_session_token)
+            .await;
+
+        let mut robot_users: Vec<models::jira::User> = Vec::new();
+
+        let project_roles = client
+            .get_jira_project_roles(
+                &self.credential.platform_email,
+                &self.credential.platform_api_key,
+            )
+            .await;
+
+        for project_role in project_roles {
+            if project_role.scope.is_none() {
+                continue;
+            }
+
+            if self.credential.project_id != project_role.scope.unwrap().project.id {
+                continue;
+            }
+
+            let role_actors = client
+                .get_jira_project_role_actors(
+                    &self.credential.platform_email,
+                    &self.credential.platform_api_key,
+                    &self.credential.project_id,
+                    project_role.id,
+                )
+                .await;
+
+            for role_actor in role_actors {
+                if robot_users
+                    .iter()
+                    .any(|user| user.id == role_actor.actor_user.account_id)
+                {
+                    continue;
+                }
+
+                let user = users
+                    .iter()
+                    .find(|user| user.id == role_actor.actor_user.account_id);
+                if user.is_none() {
+                    continue;
+                }
+
+                robot_users.push(user.unwrap().clone());
+            }
+        }
+
+        robot_users.sort_by_key(|user| user.created);
+
+        return robot_users;
+    }
+
+    fn filter_jira_user(&self, users: &Vec<models::jira::User>) -> models::purge::PurgeUsers {
         let mut purge_users = models::purge::PurgeUsers::new();
         self.filter_duplicate(users, &mut purge_users);
         self.filter_inactivity(users, &mut purge_users);
@@ -219,6 +365,7 @@ impl Robot {
                         other_user,
                         self,
                         models::purge::PurgeReason::DoubleEmail,
+                        7,
                     ));
                 }
 
@@ -234,6 +381,7 @@ impl Robot {
                                 other_user,
                                 self,
                                 models::purge::PurgeReason::DoubleName,
+                                7,
                             );
                         }
                     };
@@ -275,7 +423,7 @@ impl Robot {
 
             if self.filter_last_active(user) {
                 purge_data_cached =
-                    Some(purge_users.push(user, self, models::purge::PurgeReason::LastActive));
+                    Some(purge_users.push(user, self, models::purge::PurgeReason::LastActive, 7));
             }
 
             if self.filter_active_status(user) {
@@ -286,7 +434,7 @@ impl Robot {
                             .push(models::purge::PurgeReason::ActiveStatus);
                     }
                     None => {
-                        purge_users.push(user, self, models::purge::PurgeReason::ActiveStatus);
+                        purge_users.push(user, self, models::purge::PurgeReason::ActiveStatus, 7);
                     }
                 };
             }

@@ -122,13 +122,15 @@ async fn main() -> std::io::Result<()> {
         .parse()
         .expect("MONGODB_PORT must be a valid port");
 
-    let client_service = utils::client::Client::new(&mongodb_addr, mongodb_port);
+    let client = utils::client::Client::new(&mongodb_addr, mongodb_port);
 
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
+    utils::scheduler::robots(client.clone()).await;
+
     return actix_web::HttpServer::new(move || {
         actix_web::App::new()
-            .app_data(actix_web::web::Data::new(client_service.clone()))
+            .app_data(actix_web::web::Data::new(client.clone()))
             .wrap(actix_web::middleware::Logger::default())
             .service(
                 actix_web::web::resource("/robots")

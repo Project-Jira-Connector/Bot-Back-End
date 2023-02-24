@@ -65,8 +65,12 @@ impl PurgeReasonsContainer {
     serde::Serialize,
     serde::Deserialize,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct PurgeUser {
     pub user_id: String,
+    pub display_name: String,
+    pub email: String,
+    pub presence: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(
@@ -97,27 +101,11 @@ pub struct PurgeRobot {
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct PurgeScheduler {
-    pub last_updated: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Hash,
-    Default,
-    Debug,
-    serde::Serialize,
-    serde::Deserialize,
-)]
 pub struct PurgeData {
     pub user: PurgeUser,
     pub robot: PurgeRobot,
-    pub time: PurgeScheduler,
-    pub alert: PurgeScheduler,
+    pub time: chrono::DateTime<chrono::Utc>,
+    pub alert: chrono::DateTime<chrono::Utc>,
     pub reasons: PurgeReasonsContainer,
 }
 
@@ -138,6 +126,7 @@ impl PurgeUsers {
         user: &models::jira::User,
         robot: &models::robot::Robot,
         reason: PurgeReason,
+        days: i64,
     ) -> &mut PurgeData {
         return match self.users.entry(user.id.clone()) {
             std::collections::hash_map::Entry::Occupied(e) => {
@@ -148,16 +137,26 @@ impl PurgeUsers {
             std::collections::hash_map::Entry::Vacant(e) => e.insert(PurgeData {
                 user: PurgeUser {
                     user_id: user.id.clone(),
+                    display_name: user.display_name.clone(),
+                    email: user.email.clone(),
+                    presence: user.presence.unwrap_or_else(move || {
+                        return match &user.invitation_status {
+                            Some(invitation_status) => invitation_status.invited_at,
+                            None => user.created,
+                        };
+                    }),
                 },
-                robot: PurgeRobot { id: robot.id.unwrap() },
-                time: PurgeScheduler {
-                    last_updated: robot.scheduler.last_updated,
+                robot: PurgeRobot {
+                    id: robot.id.unwrap(),
                 },
-                alert: PurgeScheduler {
-                    last_updated: robot.scheduler.last_updated,
-                },
+                time: robot.scheduler.last_updated + chrono::Duration::days(days),
+                alert: robot.scheduler.last_updated,
                 reasons: PurgeReasonsContainer::new(reason),
             }),
         };
+    }
+
+    pub fn get(&self) -> Vec<&PurgeData> {
+        return Vec::from_iter(self.users.values());
     }
 }
