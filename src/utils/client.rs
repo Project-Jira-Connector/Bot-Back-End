@@ -7,13 +7,16 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(mongodb_addr: &String, mongodb_port: i16) -> Self {
+    pub fn new(mongodb_username: &String, mongodb_password: &String) -> Self {
         return Self {
             reqwest: reqwest::Client::new(),
-            mongodb: futures::executor::block_on(mongodb::Client::with_uri_str(format!(
-                "mongodb://{}:{}",
-                mongodb_addr, mongodb_port
-            )))
+            mongodb: mongodb::Client::with_options(
+                futures::executor::block_on(mongodb::options::ClientOptions::parse(format!(
+                    "mongodb://{}:{}@ac-mt2requ-shard-00-00.pflxmhx.mongodb.net:27017,ac-mt2requ-shard-00-01.pflxmhx.mongodb.net:27017,ac-mt2requ-shard-00-02.pflxmhx.mongodb.net:27017/?ssl=true&replicaSet=atlas-g6x5st-shard-0&authSource=admin&retryWrites=true&w=majority",
+                    mongodb_username, mongodb_password
+                )))
+                .unwrap(),
+            )
             .unwrap(),
         };
     }
@@ -52,73 +55,73 @@ impl Client {
         return users;
     }
 
-    pub async fn get_jira_project_roles(
-        &self,
-        platform_email: &String,
-        platform_api_key: &String,
-    ) -> Vec<models::jira::ProjectRole> {
-        let response = self
-            .reqwest
-            .get(format!(
-                "https://{}.atlassian.net/rest/api/latest/role/",
-                std::env::var("ORGANIZATION_NAME").unwrap()
-            ))
-            .basic_auth(platform_email, Some(platform_api_key))
-            .send()
-            .await;
-        if response.is_err() {
-            return vec![];
-        }
+    // pub async fn get_jira_project_roles(
+    //     &self,
+    //     platform_email: &String,
+    //     platform_api_key: &String,
+    // ) -> Vec<models::jira::ProjectRole> {
+    //     let response = self
+    //         .reqwest
+    //         .get(format!(
+    //             "https://{}.atlassian.net/rest/api/latest/role/",
+    //             std::env::var("ORGANIZATION_NAME").unwrap()
+    //         ))
+    //         .basic_auth(platform_email, Some(platform_api_key))
+    //         .send()
+    //         .await;
+    //     if response.is_err() {
+    //         return vec![];
+    //     }
 
-        let text = response.unwrap().text().await;
-        if text.is_err() {
-            return vec![];
-        }
+    //     let text = response.unwrap().text().await;
+    //     if text.is_err() {
+    //         return vec![];
+    //     }
 
-        let data: Result<Vec<models::jira::ProjectRole>, _> =
-            serde_json::from_str(text.unwrap().as_str());
-        if data.is_err() {
-            return vec![];
-        }
+    //     let data: Result<Vec<models::jira::ProjectRole>, _> =
+    //         serde_json::from_str(text.unwrap().as_str());
+    //     if data.is_err() {
+    //         return vec![];
+    //     }
 
-        return data.unwrap();
-    }
+    //     return data.unwrap();
+    // }
 
-    pub async fn get_jira_project_role_actors(
-        &self,
-        platform_email: &String,
-        platform_api_key: &String,
-        project_id: &String,
-        role_id: i64,
-    ) -> Vec<models::jira::RoleActor> {
-        let response = self
-            .reqwest
-            .get(format!(
-                "https://{}.atlassian.net/rest/api/latest/project/{}/role/{}",
-                std::env::var("ORGANIZATION_NAME").unwrap(),
-                project_id,
-                role_id
-            ))
-            .basic_auth(platform_email, Some(platform_api_key))
-            .send()
-            .await;
-        if response.is_err() {
-            return vec![];
-        }
+    // pub async fn get_jira_project_role_actors(
+    //     &self,
+    //     platform_email: &String,
+    //     platform_api_key: &String,
+    //     project_id: &String,
+    //     role_id: i64,
+    // ) -> Vec<models::jira::RoleActor> {
+    //     let response = self
+    //         .reqwest
+    //         .get(format!(
+    //             "https://{}.atlassian.net/rest/api/latest/project/{}/role/{}",
+    //             std::env::var("ORGANIZATION_NAME").unwrap(),
+    //             project_id,
+    //             role_id
+    //         ))
+    //         .basic_auth(platform_email, Some(platform_api_key))
+    //         .send()
+    //         .await;
+    //     if response.is_err() {
+    //         return vec![];
+    //     }
 
-        let text = response.unwrap().text().await;
-        if text.is_err() {
-            return vec![];
-        }
+    //     let text = response.unwrap().text().await;
+    //     if text.is_err() {
+    //         return vec![];
+    //     }
 
-        let data: Result<models::jira::ProjectRole, _> =
-            serde_json::from_str(text.unwrap().as_str());
-        if data.is_err() || data.as_ref().unwrap().actors.is_none() {
-            return vec![];
-        }
+    //     let data: Result<models::jira::ProjectRole, _> =
+    //         serde_json::from_str(text.unwrap().as_str());
+    //     if data.is_err() || data.as_ref().unwrap().actors.is_none() {
+    //         return vec![];
+    //     }
 
-        return data.unwrap().actors.unwrap();
-    }
+    //     return data.unwrap().actors.unwrap();
+    // }
 
     pub async fn add_robot(
         &self,

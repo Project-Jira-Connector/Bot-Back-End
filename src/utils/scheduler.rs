@@ -58,9 +58,19 @@ pub async fn robots(client: utils::client::Client) {
                                 "[{:?}] {:?} has been patched.",
                                 update_datetime, robot.info.name
                             );
+                        } else {
+                            println!(
+                                "[{:?}] Failed to patch {:?} (Not Found).",
+                                update_datetime, robot.info.name
+                            );
                         }
                     }
-                    Err(error) => {}
+                    Err(error) => {
+                        println!(
+                            "[{:?}] Failed to patch {:?} ({}).",
+                            update_datetime, robot.info.name, error
+                        );
+                    }
                 }
             }
         }

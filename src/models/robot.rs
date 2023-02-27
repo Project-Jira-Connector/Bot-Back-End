@@ -73,7 +73,6 @@ pub struct RobotCredential {
     pub platform_api_key: String,
     pub platform_type: PlatformType,
     pub cloud_session_token: String,
-    pub project_id: String,
 }
 
 #[serde_with::skip_serializing_none]
@@ -95,9 +94,9 @@ pub struct RobotCredentialQuery {
     pub platform_api_key: Option<String>,
     pub platform_type: Option<PlatformType>,
     pub cloud_session_token: Option<String>,
-    pub project_id: Option<String>,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(
     PartialEq,
     Eq,
@@ -118,7 +117,7 @@ pub struct RobotScheduler {
     pub check_double_name: bool,
     pub check_double_email: bool,
     pub check_active_status: bool,
-    pub last_updated: chrono::DateTime<chrono::Utc>,
+    pub last_updated: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[serde_with::skip_serializing_none]
@@ -206,7 +205,6 @@ impl RobotQuery {
                 platform_api_key: None,
                 platform_type: None,
                 cloud_session_token: None,
-                project_id: None,
             },
             scheduler: RobotSchedulerQuery {
                 active: None,
@@ -234,7 +232,6 @@ impl From<&mut Robot> for RobotQuery {
                 platform_api_key: Some(robot.credential.platform_api_key.clone()),
                 platform_type: Some(robot.credential.platform_type),
                 cloud_session_token: Some(robot.credential.cloud_session_token.clone()),
-                project_id: Some(robot.credential.project_id.clone()),
             },
             scheduler: RobotSchedulerQuery {
                 active: Some(robot.scheduler.active),
@@ -243,7 +240,7 @@ impl From<&mut Robot> for RobotQuery {
                 check_double_name: Some(robot.scheduler.check_double_name),
                 check_double_email: Some(robot.scheduler.check_double_email),
                 check_active_status: Some(robot.scheduler.check_active_status),
-                last_updated: Some(robot.scheduler.last_updated),
+                last_updated: robot.scheduler.last_updated,
             },
         };
     }
@@ -259,14 +256,17 @@ impl Robot {
             return false;
         }
 
-        if now <= self.scheduler.last_updated + chrono::Duration::days(self.scheduler.delay) {
-            return false;
-        } else {
-            self.scheduler.last_updated = now;
+        if let Some(last_updated) = self.scheduler.last_updated {
+            if now <= last_updated + chrono::Duration::days(self.scheduler.delay) {
+                return false;
+            }
         }
+        self.scheduler.last_updated = Some(now);
 
-        let robot_users = self.get_users(client).await;
-        let filtered_users = self.filter_jira_user(&robot_users);
+        let users = client
+            .get_jira_users(&self.credential.cloud_session_token)
+            .await;
+        let filtered_users = self.filter_jira_user(&users);
         for data in filtered_users.get() {
             match client.add_purge(data).await {
                 Ok(result) => {
@@ -277,68 +277,68 @@ impl Robot {
                         );
                     }
                 }
-                Err(error) => {}
+                Err(_error) => {}
             }
         }
 
         return true;
     }
 
-    async fn get_users(&self, client: &utils::client::Client) -> Vec<models::jira::User> {
-        let users = client
-            .get_jira_users(&self.credential.cloud_session_token)
-            .await;
+    // async fn get_users(&self, client: &utils::client::Client) -> Vec<models::jira::User> {
+    //     let users = client
+    //         .get_jira_users(&self.credential.cloud_session_token)
+    //         .await;
 
-        let mut robot_users: Vec<models::jira::User> = Vec::new();
+    //     let mut robot_users: Vec<models::jira::User> = Vec::new();
 
-        let project_roles = client
-            .get_jira_project_roles(
-                &self.credential.platform_email,
-                &self.credential.platform_api_key,
-            )
-            .await;
+    //     let project_roles = client
+    //         .get_jira_project_roles(
+    //             &self.credential.platform_email,
+    //             &self.credential.platform_api_key,
+    //         )
+    //         .await;
 
-        for project_role in project_roles {
-            if project_role.scope.is_none() {
-                continue;
-            }
+    //     for project_role in project_roles {
+    //         if project_role.scope.is_none() {
+    //             continue;
+    //         }
 
-            if self.credential.project_id != project_role.scope.unwrap().project.id {
-                continue;
-            }
+    //         if self.credential.project_id != project_role.scope.unwrap().project.id {
+    //             continue;
+    //         }
 
-            let role_actors = client
-                .get_jira_project_role_actors(
-                    &self.credential.platform_email,
-                    &self.credential.platform_api_key,
-                    &self.credential.project_id,
-                    project_role.id,
-                )
-                .await;
+    //         let role_actors = client
+    //             .get_jira_project_role_actors(
+    //                 &self.credential.platform_email,
+    //                 &self.credential.platform_api_key,
+    //                 &self.credential.project_id,
+    //                 project_role.id,
+    //             )
+    //             .await;
 
-            for role_actor in role_actors {
-                if robot_users
-                    .iter()
-                    .any(|user| user.id == role_actor.actor_user.account_id)
-                {
-                    continue;
-                }
+    //         for role_actor in role_actors {
+    //             if robot_users
+    //                 .iter()
+    //                 .any(|user| user.id == role_actor.actor_user.account_id)
+    //             {
+    //                 continue;
+    //             }
 
-                let user = users
-                    .iter()
-                    .find(|user| user.id == role_actor.actor_user.account_id);
-                if user.is_none() {
-                    continue;
-                }
+    //             let user = users
+    //                 .iter()
+    //                 .find(|user| user.id == role_actor.actor_user.account_id);
+    //             if user.is_none() {
+    //                 continue;
+    //             }
 
-                robot_users.push(user.unwrap().clone());
-            }
-        }
+    //             robot_users.push(user.unwrap().clone());
+    //         }
+    //     }
 
-        robot_users.sort_by_key(|user| user.created);
+    //     robot_users.sort_by_key(|user| user.created);
 
-        return robot_users;
-    }
+    //     return robot_users;
+    // }
 
     fn filter_jira_user(&self, users: &Vec<models::jira::User>) -> models::purge::PurgeUsers {
         let mut purge_users = models::purge::PurgeUsers::new();
@@ -454,7 +454,7 @@ impl Robot {
         }
 
         if last_active + chrono::Duration::days(self.scheduler.last_active)
-            > self.scheduler.last_updated
+            > self.scheduler.last_updated.unwrap()
         {
             return false;
         }

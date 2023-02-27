@@ -149,8 +149,8 @@ impl PurgeUsers {
                 robot: PurgeRobot {
                     id: robot.id.unwrap(),
                 },
-                time: robot.scheduler.last_updated + chrono::Duration::days(days),
-                alert: robot.scheduler.last_updated,
+                time: robot.scheduler.last_updated.unwrap() + chrono::Duration::days(days),
+                alert: robot.scheduler.last_updated.unwrap(),
                 reasons: PurgeReasonsContainer::new(reason),
             }),
         };
