@@ -109,6 +109,24 @@ pub struct PurgeData {
     pub reasons: PurgeReasonsContainer,
 }
 
+impl PurgeData {
+    pub fn should_email_user(&self) -> bool {
+        return true;
+    }
+
+    pub fn should_remove_user(&self) -> bool {
+        return true;
+    }
+
+    pub fn remove_user(&self) -> bool {
+        return true;
+    }
+
+    pub fn email_user(&self) -> bool {
+        return true;
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PurgeUsers {
     pub users: std::collections::HashMap<String, PurgeData>,

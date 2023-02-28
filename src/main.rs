@@ -8,20 +8,26 @@ async fn main() -> std::io::Result<()> {
 
     let bind_addr = std::env::var("BIND_ADDRESS").expect("BIND_ADDRESS must be defined");
     let bind_port = std::env::var("BIND_PORT")
-        .expect("BIND_PORT must be defined.")
+        .expect("BIND_PORT must be defined")
         .parse()
         .expect("BIND_PORT must be a valid port");
 
     let mongodb_username =
         std::env::var("MONGODB_USERNAME").expect("MONGODB_USERNAME must be defined");
     let mongodb_password =
-        std::env::var("MONGODB_PASSWORD").expect("MONGODB_PASSWORD must be defined.");
+        std::env::var("MONGODB_PASSWORD").expect("MONGODB_PASSWORD must be defined");
+
+    let schedule: cron::Schedule = std::env::var("SCHEDULE")
+        .expect("SCHEDULE must be defined")
+        .parse()
+        .expect("SCHEDULE must be a valid schedule");
 
     let client = utils::client::Client::new(&mongodb_username, &mongodb_password);
 
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
-    utils::scheduler::robots(client.clone()).await;
+    utils::scheduler::robots(client.clone(), schedule.clone()).await;
+    utils::scheduler::purger(client.clone(), schedule.clone()).await;
 
     return actix_web::HttpServer::new(move || {
         actix_web::App::new()

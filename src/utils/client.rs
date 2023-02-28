@@ -212,4 +212,33 @@ impl Client {
             )
             .await;
     }
+
+    pub async fn get_purges(&self) -> Option<Vec<models::purge::PurgeData>> {
+        let results = self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("purges")
+            .find(None, None)
+            .await;
+        if results.is_err() {
+            return None;
+        }
+
+        let documents = futures::TryStreamExt::try_collect::<Vec<_>>(results.unwrap()).await;
+        if documents.is_err() {
+            return None;
+        }
+
+        let json = serde_json::to_string(&documents.unwrap());
+        if json.is_err() {
+            return None;
+        }
+
+        let purges = serde_json::from_str(json.unwrap().as_str());
+        if purges.is_err() {
+            return None;
+        }
+
+        return Some(purges.unwrap());
+    }
 }
