@@ -133,44 +133,25 @@ pub async fn purger(
 
             for purge in &mut purges {
                 if purge.should_remove_user(last_upcoming_datetime) {
-                    let robot = client
-                        .get_robot(&models::robot::RobotQuery {
-                            id: Some(purge.robot.id),
-                            info: models::robot::RobotInfoQuery {
-                                name: None,
-                                description: None,
-                            },
-                            credential: models::robot::RobotCredentialQuery {
-                                platform_email: None,
-                                platform_api_key: None,
-                                platform_type: None,
-                                cloud_session_token: None,
-                            },
-                            scheduler: models::robot::RobotSchedulerQuery {
-                                active: None,
-                                delay: None,
-                                last_active: None,
-                                check_double_name: None,
-                                check_double_email: None,
-                                check_active_status: None,
-                                last_updated: None,
-                            },
-                        })
-                        .await;
-                    if robot.is_err() || robot.as_ref().unwrap().is_none() {
-                        continue;
-                    }
-                    //let robot = robot.unwrap().unwrap();
-                    if purge.remove_user() {}
+                    //if client.remove_user(purge).await {
+                        println!(
+                            "[{:?}] {:?} has been remove from organization.",
+                            last_upcoming_datetime, purge.user.user_id
+                        );
+                   // }
                 } else if purge.should_email_user(last_upcoming_datetime) {
                     //if purge.email_user(&notification_email, &notification_password) {
-                    purge.alert = last_upcoming_datetime;
-                    if client.patch_purge(purge).await.is_ok() {
+                        purge.alert = last_upcoming_datetime;
                         println!(
                             "[{:?}] {:?} has been notified.",
                             last_upcoming_datetime, purge.user.email
                         );
-                    }
+                        if client.patch_purge(purge).await.is_ok() {
+                            println!(
+                                "[{:?}] {:?} has been patched.",
+                                last_upcoming_datetime, purge.id
+                            );
+                        }
                     //}
                 }
             }

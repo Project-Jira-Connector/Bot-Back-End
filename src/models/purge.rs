@@ -121,10 +121,6 @@ impl PurgeData {
         return self.time < now;
     }
 
-    pub fn remove_user(&self) -> bool {
-        return true;
-    }
-
     pub fn email_user(&self, notification_email: &String, notification_password: &String) -> bool {
         return lettre::Transport::send(
             &lettre::SmtpTransport::relay("smtp.gmail.com")

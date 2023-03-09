@@ -233,4 +233,46 @@ impl Client {
             )
             .await;
     }
+
+    pub async fn remove_user(&self, purge: &models::purge::PurgeData) -> bool {
+        let robot = self
+            .get_robot(&models::robot::RobotQuery {
+                id: Some(purge.robot.id),
+                info: models::robot::RobotInfoQuery {
+                    name: None,
+                    description: None,
+                },
+                credential: models::robot::RobotCredentialQuery {
+                    platform_email: None,
+                    platform_api_key: None,
+                    platform_type: None,
+                    cloud_session_token: None,
+                },
+                scheduler: models::robot::RobotSchedulerQuery {
+                    active: None,
+                    delay: None,
+                    last_active: None,
+                    check_double_name: None,
+                    check_double_email: None,
+                    check_active_status: None,
+                    last_updated: None,
+                },
+            })
+            .await;
+        if robot.is_err() || robot.as_ref().unwrap().is_none() {
+            return false;
+        }
+        let robot = robot.unwrap().unwrap();
+
+        return self
+            .reqwest
+            .post(format!(
+                "https://telkomdevelopernetwork.atlassian.net/rest/api/latest/user?accountId={}",
+                purge.user.user_id
+            ))
+            .header(reqwest::header::AUTHORIZATION, base64::encode(format!("{}:{}", robot.credential.platform_email, robot.credential.platform_api_key)))
+            .send()
+            .await
+            .is_ok();
+    }
 }
