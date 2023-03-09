@@ -113,20 +113,41 @@ pub struct PurgeData {
 }
 
 impl PurgeData {
-    pub fn should_email_user(&self) -> bool {
-        return true;
+    pub fn should_email_user(&self, now: chrono::DateTime<chrono::Utc>) -> bool {
+        return self.alert + chrono::Duration::days(3) < now;
     }
 
-    pub fn should_remove_user(&self) -> bool {
-        return true;
+    pub fn should_remove_user(&self, now: chrono::DateTime<chrono::Utc>) -> bool {
+        return self.time < now;
     }
 
     pub fn remove_user(&self) -> bool {
         return true;
     }
 
-    pub fn email_user(&self) -> bool {
-        return true;
+    pub fn email_user(&self, notification_email: &String, notification_password: &String) -> bool {
+        return lettre::Transport::send(
+            &lettre::SmtpTransport::relay("smtp.gmail.com")
+                .unwrap()
+                .credentials(lettre::transport::smtp::authentication::Credentials::new(
+                    notification_email.clone(),
+                    notification_password.clone(),
+                ))
+                .build(),
+            &lettre::Message::builder()
+                .from(
+                    format!("Telkom Developer Network <{}>", notification_email)
+                        .parse()
+                        .unwrap(),
+                )
+                .to(format!("{} <{}>", self.user.display_name, self.user.email)
+                    .parse()
+                    .unwrap())
+                .subject("[ALERT]")
+                .body(String::from("Your account has been queued for purging!"))
+                .unwrap(),
+        )
+        .is_ok();
     }
 }
 
