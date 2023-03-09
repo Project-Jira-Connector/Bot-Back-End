@@ -112,7 +112,7 @@ pub struct RobotCredentialQuery {
 #[serde(rename_all = "camelCase")]
 pub struct RobotScheduler {
     pub active: bool,
-    pub delay: i64,
+    pub schedule: i64,
     pub last_active: i64,
     pub check_double_name: bool,
     pub check_double_email: bool,
@@ -136,7 +136,7 @@ pub struct RobotScheduler {
 #[serde(rename_all = "camelCase")]
 pub struct RobotSchedulerQuery {
     pub active: Option<bool>,
-    pub delay: Option<i64>,
+    pub schedule: Option<i64>,
     pub last_active: Option<i64>,
     pub check_double_name: Option<bool>,
     pub check_double_email: Option<bool>,
@@ -208,7 +208,7 @@ impl RobotQuery {
             },
             scheduler: RobotSchedulerQuery {
                 active: None,
-                delay: None,
+                schedule: None,
                 last_active: None,
                 check_double_name: None,
                 check_double_email: None,
@@ -235,7 +235,7 @@ impl From<&mut Robot> for RobotQuery {
             },
             scheduler: RobotSchedulerQuery {
                 active: Some(robot.scheduler.active),
-                delay: Some(robot.scheduler.delay),
+                schedule: Some(robot.scheduler.schedule),
                 last_active: Some(robot.scheduler.last_active),
                 check_double_name: Some(robot.scheduler.check_double_name),
                 check_double_email: Some(robot.scheduler.check_double_email),
@@ -252,12 +252,12 @@ impl Robot {
         client: &utils::client::Client,
         now: chrono::DateTime<chrono::Utc>,
     ) -> bool {
-        if !self.scheduler.active || self.scheduler.delay <= 0 {
+        if !self.scheduler.active || self.scheduler.schedule <= 0 {
             return false;
         }
 
         if let Some(last_updated) = self.scheduler.last_updated {
-            if now <= last_updated + chrono::Duration::days(self.scheduler.delay) {
+            if now <= last_updated + chrono::Duration::days(self.scheduler.schedule) {
                 return false;
             }
         }

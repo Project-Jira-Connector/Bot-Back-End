@@ -250,7 +250,7 @@ impl Client {
                 },
                 scheduler: models::robot::RobotSchedulerQuery {
                     active: None,
-                    delay: None,
+                    schedule: None,
                     last_active: None,
                     check_double_name: None,
                     check_double_email: None,
