@@ -24,8 +24,8 @@ pub async fn robots(client: utils::client::Client, schedule: cron::Schedule) {
                 last_update_datetime = update_datetime;
             }
 
-            let mut robots = client.get_robots(models::robot::RobotQuery::new()).await;
-            if robots.is_none() {
+            let mut robots = client.get_robots(&models::robot::RobotQuery::new()).await;
+            if robots.is_ok() {
                 continue;
             }
 
