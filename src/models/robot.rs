@@ -277,7 +277,12 @@ impl Robot {
                         );
                     }
                 }
-                Err(_error) => {}
+                Err(error) => {
+                    println!(
+                        "[{:?}] Failed to queue {:?} for purging. ({:?})",
+                        now, data.user.display_name, error
+                    );
+                }
             }
         }
 
