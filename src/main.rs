@@ -22,12 +22,23 @@ async fn main() -> std::io::Result<()> {
         .parse()
         .expect("SCHEDULE must be a valid schedule");
 
+    let notification_email =
+        std::env::var("NOTIFICATION_EMAIL").expect("NOTIFICATION_EMAIL must be defined");
+    let notification_password =
+        std::env::var("NOTIFICATION_PASSWORD").expect("NOTIFICATION_PASSWORD must be defined");
+
     let client = utils::client::Client::new(&mongodb_username, &mongodb_password);
 
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     utils::scheduler::robots(client.clone(), schedule.clone()).await;
-    utils::scheduler::purger(client.clone(), schedule.clone()).await;
+    utils::scheduler::purger(
+        client.clone(),
+        schedule.clone(),
+        notification_email,
+        notification_password,
+    )
+    .await;
 
     return actix_web::HttpServer::new(move || {
         actix_web::App::new()
