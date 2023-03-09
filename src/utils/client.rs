@@ -145,7 +145,7 @@ impl Client {
             .collection::<models::robot::Robot>("robots")
             .find_one(mongodb::bson::to_document(&robot).unwrap(), None)
             .await;
-        }
+    }
 
     pub async fn get_robots(
         &self,
@@ -159,7 +159,7 @@ impl Client {
                 .await?,
         )
         .await;
-        }
+    }
 
     pub async fn patch_robot(
         &self,
@@ -207,32 +207,30 @@ impl Client {
             .await;
     }
 
-    pub async fn get_purges(&self) -> Option<Vec<models::purge::PurgeData>> {
-        let results = self
+    pub async fn get_purges(&self) -> Result<Vec<models::purge::PurgeData>, mongodb::error::Error> {
+        return futures::TryStreamExt::try_collect(
+            self.mongodb
+                .database("robots")
+                .collection::<models::purge::PurgeData>("purges")
+                .find(None, None)
+                .await?,
+        )
+        .await;
+    }
+
+    pub async fn patch_purge(
+        &self,
+        purge: &models::purge::PurgeData,
+    ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
+        return self
             .mongodb
             .database("robots")
             .collection::<mongodb::bson::Document>("purges")
-            .find(None, None)
+            .update_one(
+                mongodb::bson::doc! {"_id":purge.id},
+                mongodb::bson::doc! {"$set":mongodb::bson::to_document(&purge).unwrap()},
+                None,
+            )
             .await;
-        if results.is_err() {
-            return None;
-        }
-
-        let documents = futures::TryStreamExt::try_collect::<Vec<_>>(results.unwrap()).await;
-        if documents.is_err() {
-            return None;
-        }
-
-        let json = serde_json::to_string(&documents.unwrap());
-        if json.is_err() {
-            return None;
-        }
-
-        let purges = serde_json::from_str(json.unwrap().as_str());
-        if purges.is_err() {
-            return None;
-        }
-
-        return Some(purges.unwrap());
     }
 }

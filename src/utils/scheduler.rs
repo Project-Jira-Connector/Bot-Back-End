@@ -95,8 +95,8 @@ pub async fn purger(client: utils::client::Client, schedule: cron::Schedule) {
                 last_update_datetime = update_datetime;
             }
 
-            let mut purges = client.get_purges().await;
-            if purges.is_none() {
+            let purges = client.get_purges().await;
+            if purges.is_err() {
                 continue;
             }
 

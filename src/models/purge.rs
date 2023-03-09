@@ -89,6 +89,7 @@ pub struct PurgeRobot {
     pub id: mongodb::bson::oid::ObjectId,
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(
     PartialEq,
     Eq,
@@ -102,6 +103,8 @@ pub struct PurgeRobot {
     serde::Deserialize,
 )]
 pub struct PurgeData {
+    #[serde(rename = "_id")]
+    pub id: Option<mongodb::bson::oid::ObjectId>,
     pub user: PurgeUser,
     pub robot: PurgeRobot,
     pub time: chrono::DateTime<chrono::Utc>,
@@ -153,6 +156,7 @@ impl PurgeUsers {
                 return purge_data;
             }
             std::collections::hash_map::Entry::Vacant(e) => e.insert(PurgeData {
+                id: None,
                 user: PurgeUser {
                     user_id: user.id.clone(),
                     display_name: user.display_name.clone(),
