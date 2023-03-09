@@ -31,6 +31,7 @@ async fn main() -> std::io::Result<()> {
 
     return actix_web::HttpServer::new(move || {
         actix_web::App::new()
+            .wrap(actix_cors::Cors::permissive())
             .app_data(actix_web::web::Data::new(client.clone()))
             .wrap(actix_web::middleware::Logger::default())
             .service(
