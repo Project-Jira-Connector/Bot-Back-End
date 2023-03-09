@@ -9,7 +9,6 @@ actix-rt = { version = "2.8.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_with = { version = "2.2.0" }
 serde_json = { version = "1.0.91" }
-http-auth-basic = { version = "0.3.3" }
 reqwest = { version = "0.11.13" }
 mongodb = { version = "2.3.1" }
 futures = { version = "0.3.25" }
@@ -19,4 +18,5 @@ cron = { version = "0.12.0" }
 chrono = { version = "0.4.23", features = ["serde"] }
 dotenv = { version = "0.15.0" }
 strsim = { version = "0.10.0" }
+base64 = { version = "0.13.0" }
 actix-cors = { version = "0.6.4" }
