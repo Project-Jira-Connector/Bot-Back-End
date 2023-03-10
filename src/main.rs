@@ -5,6 +5,7 @@ mod utils;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     let bind_addr = std::env::var("BIND_ADDRESS").expect("BIND_ADDRESS must be defined");
     let bind_port = std::env::var("BIND_PORT")
@@ -29,7 +30,6 @@ async fn main() -> std::io::Result<()> {
 
     let client = utils::client::Client::new(&mongodb_username, &mongodb_password);
 
-    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     utils::scheduler::robots(client.clone(), schedule.clone()).await;
     utils::scheduler::purger(
