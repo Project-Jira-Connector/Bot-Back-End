@@ -5,9 +5,11 @@ mod utils;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
+
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     let environment = models::config::Environment::new();
+
     let client = utils::client::Client::new(
         &environment.database.username,
         &environment.database.password,
@@ -22,11 +24,11 @@ async fn main() -> std::io::Result<()> {
     )
     .await;
 
-    return actix_web::HttpServer::new(move || {
+    actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .wrap(actix_cors::Cors::permissive())
-            .app_data(actix_web::web::Data::new(client.clone()))
             .wrap(actix_web::middleware::Logger::default())
+            .app_data(actix_web::web::Data::new(client.clone()))
             .service(
                 actix_web::web::resource("/robots")
                     .route(actix_web::web::get().to(routes::robots::get))
@@ -37,5 +39,7 @@ async fn main() -> std::io::Result<()> {
     })
     .bind((environment.server.address, environment.server.port))?
     .run()
-    .await;
+    .await?;
+
+    return Ok(());
 }
