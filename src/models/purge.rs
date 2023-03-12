@@ -18,8 +18,8 @@ pub enum PurgeReason {
     #[default]
     ActiveStatus,
     LastActive,
-    DoubleEmail,
-    DoubleName,
+    DuplicateEmail,
+    DuplicateName,
 }
 
 #[derive(

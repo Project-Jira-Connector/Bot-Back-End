@@ -21,21 +21,21 @@ impl Client {
         };
     }
 
-    pub async fn get_jira_users(&self, cloud_session_token: &String) -> Vec<models::jira::User> {
+    pub fn get_jira_users(&self, cloud_session_token: &String) -> Vec<models::jira::User> {
+        let system = actix_rt::System::new();
         let mut users: Vec<models::jira::User> = vec![];
         let mut start_index = 1;
         loop {
-            let response = self
+            let response = system.block_on(self
             .reqwest
             .get(format!("https://admin.atlassian.com/gateway/api/adminhub/um/org/{}/users?count=100&start-index={}", std::env::var("ORGANIZATION_ID").unwrap(), start_index))
             .header(reqwest::header::COOKIE, format!("cloud.session.token={}", cloud_session_token))
-            .send()
-            .await;
+            .send());
             if response.is_err() {
                 break;
             }
 
-            let text = response.unwrap().text().await;
+            let text = system.block_on(response.unwrap().text());
             if text.is_err() {
                 break;
             }
@@ -147,7 +147,7 @@ impl Client {
             .await;
     }
 
-    pub async fn get_robots(
+    pub async fn get_robots_with(
         &self,
         robot: &models::robot::RobotQuery,
     ) -> Result<Vec<models::robot::Robot>, mongodb::error::Error> {
@@ -156,6 +156,17 @@ impl Client {
                 .database("robots")
                 .collection::<models::robot::Robot>("robots")
                 .find(mongodb::bson::to_document(&robot).unwrap(), None)
+                .await?,
+        )
+        .await;
+    }
+
+    pub async fn get_robots(&self) -> Result<Vec<models::robot::Robot>, mongodb::error::Error> {
+        return futures::TryStreamExt::try_collect(
+            self.mongodb
+                .database("robots")
+                .collection::<models::robot::Robot>("robots")
+                .find(None, None)
                 .await?,
         )
         .await;
@@ -270,7 +281,13 @@ impl Client {
                 "https://telkomdevelopernetwork.atlassian.net/rest/api/latest/user?accountId={}",
                 purge.user.user_id
             ))
-            .header(reqwest::header::AUTHORIZATION, base64::encode(format!("{}:{}", robot.credential.platform_email, robot.credential.platform_api_key)))
+            .header(
+                reqwest::header::AUTHORIZATION,
+                base64::encode(format!(
+                    "{}:{}",
+                    robot.credential.platform_email, robot.credential.platform_api_key
+                )),
+            )
             .send()
             .await
             .is_ok();

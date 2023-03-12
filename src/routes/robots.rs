@@ -7,7 +7,7 @@ pub async fn get(
     return match request
         .app_data::<actix_web::web::Data<utils::client::Client>>()
         .unwrap()
-        .get_robots(&robot)
+        .get_robots_with(&robot)
         .await
     {
         Ok(robots) => actix_web::HttpResponse::Ok().json(robots),
