@@ -46,36 +46,34 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
                     .par_iter()
                     .enumerate()
                     .skip(i + 1) // start from the next element
-                    .filter_map(move |(_j, other_user)| {
-                        if strsim::normalized_damerau_levenshtein(
-                            &user.display_name,
-                            &other_user.display_name,
-                        ) > 0.7
-                        {
-                            if user.created <= other_user.created {
-                                return Some((
-                                    other_user,
-                                    models::purge::PurgeReason::DuplicateName,
-                                ));
-                            }
-                            return Some((user, models::purge::PurgeReason::DuplicateName));
-                        } else {
-                            if strsim::normalized_damerau_levenshtein(
-                                &user.email,
-                                &other_user.email,
-                            ) > 0.7
-                            {
-                                if user.created <= other_user.created {
-                                    return Some((
-                                        other_user,
-                                        models::purge::PurgeReason::DuplicateEmail,
-                                    ));
-                                }
-                                return Some((user, models::purge::PurgeReason::DuplicateEmail));
-                            } else {
-                                return None;
+                    .filter_map(|(_j, other_user)| {
+                        let mut reasons: std::collections::HashSet<models::purge::PurgeReason> =
+                            std::collections::HashSet::new();
+                        if robot.scheduler.check_double_name {
+                            let similarity = strsim::normalized_damerau_levenshtein(
+                                &user.display_name,
+                                &other_user.display_name,
+                            );
+                            if similarity >= 0.7 {
+                                reasons.insert(models::purge::PurgeReason::DuplicateName);
                             }
                         }
+                        if robot.scheduler.check_double_email {
+                            let similarity = strsim::normalized_damerau_levenshtein(
+                                &user.email,
+                                &other_user.email,
+                            );
+                            if similarity >= 0.7 {
+                                reasons.insert(models::purge::PurgeReason::DuplicateEmail);
+                            }
+                        }
+                        if reasons.is_empty() {
+                            return None;
+                        }
+                        if user.created <= other_user.created {
+                            return Some((other_user, reasons));
+                        }
+                        return Some((user, reasons));
                     });
             })
             .collect::<Vec<_>>();
@@ -84,10 +82,14 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
         let inactive_users = users
             .par_iter()
             .flat_map(|user| {
+                let mut reasons: std::collections::HashSet<models::purge::PurgeReason> =
+                    std::collections::HashSet::new();
+
                 // Check active status
                 if robot.scheduler.check_active_status && !user.active {
-                    return Some((user, models::purge::PurgeReason::ActiveStatus));
+                    reasons.insert(models::purge::PurgeReason::ActiveStatus);
                 }
+
                 // Check presence
                 let presence = user.presence.unwrap_or_else(|| {
                     if user.invitation_status.is_some() {
@@ -98,9 +100,14 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
                 if robot.scheduler.last_active > 0
                     && presence <= now - chrono::Duration::days(robot.scheduler.last_active)
                 {
-                    return Some((user, models::purge::PurgeReason::LastActive));
+                    reasons.insert(models::purge::PurgeReason::LastActive);
                 }
-                return None;
+
+                if reasons.is_empty() {
+                    return None;
+                }
+
+                return Some((user, reasons));
             })
             .collect::<Vec<_>>();
 
@@ -111,6 +118,45 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
             duplicate_users.len(),
             inactive_users.len()
         );
+
+        let mut filtered_users: Vec<(
+            &models::jira::User,
+            std::collections::HashSet<models::purge::PurgeReason>,
+        )> = Vec::new();
+        filtered_users.extend(duplicate_users);
+        filtered_users.extend(inactive_users);
+
+        let unique_filtered_users = filtered_users
+            .into_iter()
+            .fold(
+                std::collections::HashMap::<
+                    String,
+                    (
+                        &models::jira::User,
+                        std::collections::HashSet<models::purge::PurgeReason>,
+                    ),
+                >::new(),
+                |mut data, (user, reason)| {
+                    data.entry(user.id.clone())
+                        .and_modify(|(_existing_user, existing_reason)| {
+                            // If a user with the same ID already exists, append their reason
+                            existing_reason.extend(reason.clone());
+                        })
+                        .or_insert((user, reason));
+                    return data;
+                },
+            )
+            .into_iter()
+            .map(|(_, user)| user)
+            .collect::<Vec<_>>();
+
+        for (user, reasons) in unique_filtered_users {
+            log::info!(
+                "User {:?} has been queued for puring because of the following reason(s): {:?}",
+                user.display_name,
+                reasons
+            );
+        }
     });
 
     return Some(());
