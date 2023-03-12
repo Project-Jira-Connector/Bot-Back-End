@@ -14,7 +14,7 @@ serde_json = { version = "1.0.91" }
 reqwest = { version = "0.11.13" }
 mongodb = { version = "2.3.1" }
 env_logger = { version = "0.10.0" }
-lettre = { version = "0.10.1" }
+log = { version = "0.4.17" }
 cron = { version = "0.12.0" }
 chrono = { version = "0.4.23", features = ["serde"] }
 dotenv = { version = "0.15.0" }
