@@ -21,21 +21,21 @@ impl Client {
         };
     }
 
-    pub fn get_jira_users(&self, cloud_session_token: &String) -> Vec<models::jira::User> {
-        let system = actix_rt::System::new();
+    pub async fn get_jira_users(&self, cloud_session_token: &String) -> Vec<models::jira::User> {
         let mut users: Vec<models::jira::User> = vec![];
         let mut start_index = 1;
         loop {
-            let response = system.block_on(self
+            let response = self
             .reqwest
             .get(format!("https://admin.atlassian.com/gateway/api/adminhub/um/org/{}/users?count=100&start-index={}", std::env::var("ORGANIZATION_ID").unwrap(), start_index))
             .header(reqwest::header::COOKIE, format!("cloud.session.token={}", cloud_session_token))
-            .send());
+            .send()
+            .await;
             if response.is_err() {
                 break;
             }
 
-            let text = system.block_on(response.unwrap().text());
+            let text = response.unwrap().text().await;
             if text.is_err() {
                 break;
             }
@@ -135,18 +135,6 @@ impl Client {
             .await;
     }
 
-    pub async fn get_robot(
-        &self,
-        robot: &models::robot::RobotQuery,
-    ) -> Result<Option<models::robot::Robot>, mongodb::error::Error> {
-        return self
-            .mongodb
-            .database("robots")
-            .collection::<models::robot::Robot>("robots")
-            .find_one(mongodb::bson::to_document(&robot).unwrap(), None)
-            .await;
-    }
-
     pub async fn get_robots_with(
         &self,
         robot: &models::robot::RobotQuery,
@@ -200,14 +188,14 @@ impl Client {
             .await;
     }
 
-    pub async fn add_purge(
+    pub async fn add_purge_user(
         &self,
         purge: &models::purge::PurgeData,
     ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
         return self
             .mongodb
             .database("robots")
-            .collection::<mongodb::bson::Document>("purges")
+            .collection::<mongodb::bson::Document>("purge_users")
             .update_one(
                 mongodb::bson::doc! {"user": mongodb::bson::to_document(&purge.user).unwrap()},
                 mongodb::bson::doc! {"$setOnInsert": mongodb::bson::to_document(purge).unwrap()},
@@ -218,25 +206,39 @@ impl Client {
             .await;
     }
 
-    pub async fn get_purges(&self) -> Result<Vec<models::purge::PurgeData>, mongodb::error::Error> {
+    pub async fn get_purge_users(
+        &self,
+    ) -> Result<Vec<models::purge::PurgeData>, mongodb::error::Error> {
         return futures::TryStreamExt::try_collect(
             self.mongodb
                 .database("robots")
-                .collection::<models::purge::PurgeData>("purges")
+                .collection::<models::purge::PurgeData>("purge_users")
                 .find(None, None)
                 .await?,
         )
         .await;
     }
 
-    pub async fn patch_purge(
+    pub async fn delete_purge_user(
+        &self,
+        purge: &models::purge::PurgeData,
+    ) -> Result<mongodb::results::DeleteResult, mongodb::error::Error> {
+        return self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("purge_users")
+            .delete_one(mongodb::bson::to_document(&purge).unwrap(), None)
+            .await;
+    }
+
+    pub async fn patch_purge_user(
         &self,
         purge: &models::purge::PurgeData,
     ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
         return self
             .mongodb
             .database("robots")
-            .collection::<mongodb::bson::Document>("purges")
+            .collection::<mongodb::bson::Document>("purge_users")
             .update_one(
                 mongodb::bson::doc! {"_id":purge.id},
                 mongodb::bson::doc! {"$set":mongodb::bson::to_document(&purge).unwrap()},
@@ -245,41 +247,16 @@ impl Client {
             .await;
     }
 
-    pub async fn remove_user(&self, purge: &models::purge::PurgeData) -> bool {
-        let robot = self
-            .get_robot(&models::robot::RobotQuery {
-                id: Some(purge.robot.id),
-                info: models::robot::RobotInfoQuery {
-                    name: None,
-                    description: None,
-                },
-                credential: models::robot::RobotCredentialQuery {
-                    platform_email: None,
-                    platform_api_key: None,
-                    platform_type: None,
-                    cloud_session_token: None,
-                },
-                scheduler: models::robot::RobotSchedulerQuery {
-                    active: None,
-                    schedule: None,
-                    last_active: None,
-                    check_double_name: None,
-                    check_double_email: None,
-                    check_active_status: None,
-                    last_updated: None,
-                },
-            })
-            .await;
-        if robot.is_err() || robot.as_ref().unwrap().is_none() {
-            return false;
-        }
-        let robot = robot.unwrap().unwrap();
-
+    pub async fn remove_user_from_jira(
+        &self,
+        robot: &models::robot::Robot,
+        purge: &models::purge::PurgeData,
+    ) -> bool {
         return self
             .reqwest
             .post(format!(
                 "https://telkomdevelopernetwork.atlassian.net/rest/api/latest/user?accountId={}",
-                purge.user.user_id
+                purge.user.id
             ))
             .header(
                 reqwest::header::AUTHORIZATION,

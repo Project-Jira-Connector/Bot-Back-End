@@ -1,5 +1,3 @@
-use crate::*;
-
 #[derive(
     PartialEq,
     Eq,
@@ -168,6 +166,19 @@ pub struct Robot {
     pub scheduler: RobotScheduler,
 }
 
+impl Robot {
+    pub fn is_up_to_date(&self, now: chrono::DateTime<chrono::Utc>) -> bool {
+        if let Some(last_updated) = self.scheduler.last_updated {
+            if now <= last_updated + chrono::Duration::days(self.scheduler.schedule) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
 #[serde_with::skip_serializing_none]
 #[derive(
     PartialEq,
@@ -190,33 +201,6 @@ pub struct RobotQuery {
     pub credential: RobotCredentialQuery,
     #[serde(flatten)]
     pub scheduler: RobotSchedulerQuery,
-}
-
-impl RobotQuery {
-    pub fn new() -> Self {
-        return Self {
-            id: None,
-            info: RobotInfoQuery {
-                name: None,
-                description: None,
-            },
-            credential: RobotCredentialQuery {
-                platform_email: None,
-                platform_api_key: None,
-                platform_type: None,
-                cloud_session_token: None,
-            },
-            scheduler: RobotSchedulerQuery {
-                active: None,
-                schedule: None,
-                last_active: None,
-                check_double_name: None,
-                check_double_email: None,
-                check_active_status: None,
-                last_updated: None,
-            },
-        };
-    }
 }
 
 impl From<&mut Robot> for RobotQuery {
@@ -243,141 +227,5 @@ impl From<&mut Robot> for RobotQuery {
                 last_updated: robot.scheduler.last_updated,
             },
         };
-    }
-}
-
-impl Robot {
-    pub async fn update(
-        &mut self,
-        client: &utils::client::Client,
-        now: chrono::DateTime<chrono::Utc>,
-    ) {
-        self.scheduler.last_updated = Some(now);
-    }
-
-    fn filter_jira_user(&self, users: &Vec<models::jira::User>) -> models::purge::PurgeUsers {
-        let mut purge_users = models::purge::PurgeUsers::new();
-        self.filter_duplicate(users, &mut purge_users);
-        self.filter_inactivity(users, &mut purge_users);
-        return purge_users;
-    }
-
-    fn filter_duplicate(
-        &self,
-        users: &Vec<models::jira::User>,
-        purge_users: &mut models::purge::PurgeUsers,
-    ) {
-        for user_index in 0..users.len() {
-            let user = &users[user_index];
-
-            for other_user_index in user_index + 1..users.len() {
-                let other_user = &users[other_user_index];
-
-                let mut purge_data_cached: Option<&mut models::purge::PurgeData> = None;
-
-                if self.filter_email(user, other_user, 0.8) {
-                    purge_data_cached = Some(purge_users.push(
-                        other_user,
-                        self,
-                        models::purge::PurgeReason::DuplicateEmail,
-                        7,
-                    ));
-                }
-
-                if self.filter_name(user, other_user, 0.8) {
-                    match purge_data_cached {
-                        Some(purge_data) => {
-                            purge_data
-                                .reasons
-                                .push(models::purge::PurgeReason::DuplicateName);
-                        }
-                        None => {
-                            purge_users.push(
-                                other_user,
-                                self,
-                                models::purge::PurgeReason::DuplicateName,
-                                7,
-                            );
-                        }
-                    };
-                }
-            }
-        }
-    }
-
-    fn filter_email(
-        &self,
-        user: &models::jira::User,
-        other_user: &models::jira::User,
-        threshold: f64,
-    ) -> bool {
-        return self.scheduler.check_double_email
-            && strsim::normalized_damerau_levenshtein(&user.email, &other_user.email) >= threshold;
-    }
-
-    fn filter_name(
-        &self,
-        user: &models::jira::User,
-        other_user: &models::jira::User,
-        threshold: f64,
-    ) -> bool {
-        return self.scheduler.check_double_name
-            && strsim::normalized_damerau_levenshtein(
-                &user.display_name,
-                &other_user.display_name,
-            ) >= threshold;
-    }
-
-    fn filter_inactivity(
-        &self,
-        users: &Vec<models::jira::User>,
-        purge_users: &mut models::purge::PurgeUsers,
-    ) {
-        for user in users {
-            let mut purge_data_cached: Option<&mut models::purge::PurgeData> = None;
-
-            if self.filter_last_active(user) {
-                purge_data_cached =
-                    Some(purge_users.push(user, self, models::purge::PurgeReason::LastActive, 7));
-            }
-
-            if self.filter_active_status(user) {
-                match purge_data_cached {
-                    Some(purge_data) => {
-                        purge_data
-                            .reasons
-                            .push(models::purge::PurgeReason::ActiveStatus);
-                    }
-                    None => {
-                        purge_users.push(user, self, models::purge::PurgeReason::ActiveStatus, 7);
-                    }
-                };
-            }
-        }
-    }
-
-    fn filter_last_active(&self, user: &models::jira::User) -> bool {
-        if self.scheduler.last_active <= 0 {
-            return false;
-        }
-
-        let mut last_active = user.created;
-        if let Some(presence) = user.presence {
-            last_active = presence;
-        } else if let Some(invitation_status) = user.invitation_status.clone() {
-            last_active = invitation_status.invited_at;
-        }
-
-        if last_active + chrono::Duration::days(self.scheduler.last_active)
-            > self.scheduler.last_updated.unwrap()
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    fn filter_active_status(&self, user: &models::jira::User) -> bool {
-        return self.scheduler.check_active_status && !user.active;
     }
 }

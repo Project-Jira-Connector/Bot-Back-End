@@ -150,6 +150,17 @@ pub struct User {
     pub managed_status: ManagedStatus,
 }
 
+impl User {
+    pub fn get_available_presence(&self) -> chrono::DateTime<chrono::Utc> {
+        return self.presence.unwrap_or_else(|| {
+            if self.invitation_status.is_some() {
+                return self.invitation_status.as_ref().unwrap().invited_at;
+            }
+            return self.created;
+        });
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Users {
     pub users: Vec<User>,
