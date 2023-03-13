@@ -1,4 +1,5 @@
 use crate::*;
+use rayon::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct Client {
@@ -180,6 +181,18 @@ impl Client {
         &self,
         robot: &models::robot::RobotQuery,
     ) -> Result<mongodb::results::DeleteResult, mongodb::error::Error> {
+        let purge_data = self.get_purge_users().await?;
+        let purge_data = purge_data
+            .par_iter()
+            .filter(|purge_user| {
+                return purge_user.robot.id == robot.id.unwrap();
+            })
+            .collect::<Vec<_>>();
+
+        for data in purge_data {
+            self.delete_purge_user(data).await?;
+        }
+
         return self
             .mongodb
             .database("robots")
