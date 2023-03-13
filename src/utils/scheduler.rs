@@ -3,7 +3,7 @@ use crate::*;
 // Import the necessary traits from the rayon crate
 use rayon::prelude::*;
 
-async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>) -> Option<()> {
+async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>, environment: &models::config::Environment) -> Option<()> {
     // Call the `get_robots` method on the `Client` object to retrieve a list of robots.
     let mut robots = client.get_robots().await.ok()?;
 
@@ -224,7 +224,9 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
                             data.alert = Some(now);
                             if let Ok(result) = client.patch_purge_user(data).await {
                                 if result.modified_count > 0 {
-                                    log::info!("Robot {:?} has patch purge user {:?}", robot.info.name, user.display_name);
+                                    if  data.email_user(&environment.notification.email, &environment.notification.password) {
+                                        log::info!("Robot {:?} has notified user {:?} through {:?}", robot.info.name, user.display_name, user.email);
+                                    }
                                 }
                             }
                         }
@@ -254,7 +256,7 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
 
 pub async fn run(
     client: utils::client::Client,
-    schedule: cron::Schedule,
+    environment: models::config::Environment,
     mut exit_rx: tokio::sync::mpsc::Receiver<()>,
 ) {
     // Initialize a variable to track the time of the last run.
@@ -264,13 +266,13 @@ pub async fn run(
         let now = chrono::Utc::now();
 
         // If this is the first run or the schedule has elapsed since the last run, run `tick`.
-        if last_run.is_none() || schedule.after(&last_run.unwrap()).next().unwrap() <= now {
-            tick(&client, now).await;
+        if last_run.is_none() || environment.schedule.after(&last_run.unwrap()).next().unwrap() <= now {
+            tick(&client, now, &environment).await;
             last_run = Some(now);
         }
 
         // Calculate the amount of time to sleep until the next scheduled run.
-        let sleep_duration: chrono::Duration = match schedule.after(&last_run.unwrap()).next() {
+        let sleep_duration: chrono::Duration = match environment.schedule.after(&last_run.unwrap()).next() {
             Some(next_run) => next_run - now,
             None => chrono::Duration::from_std(std::time::Duration::from_secs(1)).unwrap(),
         };

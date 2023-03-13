@@ -1,3 +1,15 @@
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct Server {
     pub address: String,
     pub port: u16,
@@ -15,6 +27,18 @@ impl Server {
     }
 }
 
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct Database {
     pub username: String,
     pub password: String,
@@ -29,6 +53,18 @@ impl Database {
     }
 }
 
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct Notification {
     pub email: String,
     pub password: String,
@@ -44,6 +80,7 @@ impl Notification {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Environment {
     pub server: Server,
     pub database: Database,

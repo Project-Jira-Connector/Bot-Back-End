@@ -23,7 +23,7 @@ async fn main() -> std::io::Result<()> {
     let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
     let scheduler_handle = actix_rt::spawn(utils::scheduler::run(
         client.clone(),
-        environment.schedule,
+        environment.clone(),
         scheduler_exit_receiver,
     ));
 
