@@ -171,11 +171,9 @@ impl Robot {
         if let Some(last_updated) = self.scheduler.last_updated {
             if now <= last_updated + chrono::Duration::days(self.scheduler.schedule) {
                 return true;
-            } else {
-                return false;
             }
         }
-        return true;
+        return false;
     }
 }
 
