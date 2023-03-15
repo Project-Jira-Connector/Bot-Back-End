@@ -3,25 +3,20 @@ use crate::*;
 // Import the necessary traits from the rayon crate
 use rayon::prelude::*;
 
+fn get_active_robots(robots: &mut Vec<models::robot::Robot>) -> Vec<&mut models::robot::Robot> {
+    return robots
+    .par_iter_mut()
+    .filter(|robot|robot.scheduler.active)
+    .collect::<Vec<_>>();
+}
+
 async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>, environment: &models::config::Environment) -> Option<()> {
     // Call the `get_robots` method on the `Client` object to retrieve a list of robots.
     let mut robots = client.get_robots().await.ok()?;
+    log::info!("Found {:?} robot(s)", robots.len());
 
-    log::info!("Found {} robot(s)", robots.len());
-
-    // Use `into_iter()` to consume the `robots` vector and `filter()` to create a new vector called `active_robots`
-    // that only includes robots that needs to be updated.
-    let mut active_robots = robots
-    .par_iter_mut()
-    .filter(|robot| {
-        // Do not include inactive robot
-        if !robot.scheduler.active {
-            return false;
-        }
-        return true;
-    })
-    .collect::<Vec<_>>();
-
+    // Filter inactive robots.
+    let mut active_robots = get_active_robots(&mut robots);
     log::info!("Iterating {} robot(s)", active_robots.len());
 
     // Create a vector to hold async tasks that we'll run in parallel
@@ -216,7 +211,31 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
                             // Log removed user
                             // Remove purge_data from purge_users database
                             // Remove user from jira
-                            log::info!("Robot {:?} has remove user {:?} from organization", robot.info.name, user.display_name);
+                            match client.add_purge_log(&models::purge::PurgeLog::new(robot, user, data.reasons.clone(), now)).await {
+                                Ok(_result) => match client.delete_purge_user(data).await {
+                                    Ok(result) => {
+                                        if result.deleted_count > 0 {
+                                            match client.remove_user_from_jira(robot, data).await {
+                                                Ok(_result) => {
+                                                    log::info!("Robot {:?} has remove user {:?} from organization", robot.info.name, user.display_name);
+                                                },
+                                                Err(error) => {
+                                                    log::error!("Robot {:?} failed to remove user {:?} from organization ({:?})", robot.info.name, data.user.display_name, error);
+                                                }
+                                            }
+                                        }
+                                        else {
+                                            log::warn!("Robot {:?} failed to find user {:?} from purging queue", robot.info.name, data.user.display_name);
+                                        }
+                                    },
+                                    Err(error) => {
+                                        log::error!("Robot {:?} failed to remove user {:?} from purging queue ({:?})", robot.info.name, data.user.display_name, error);
+                                    }
+                                },
+                                Err(error) => {
+                                    log::error!("Robot {:?} failed to log user {:?} removal ({:?})", robot.info.name, data.user.display_name, error);
+                                }
+                            }
                         }
                         else if data.should_email_user(now, 3) {
                             // Patch purge alert
@@ -224,7 +243,7 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
                             data.alert = Some(now);
                             if let Ok(result) = client.patch_purge_user(data).await {
                                 if result.modified_count > 0 {
-                                    if  data.email_user(&environment.notification.email, &environment.notification.password) {
+                                    if data.email_user(&environment.notification.email, &environment.notification.password) {
                                         log::info!("Robot {:?} has notified user {:?} through {:?}", robot.info.name, user.display_name, user.email);
                                     }
                                 }
@@ -233,9 +252,17 @@ async fn tick(client: &utils::client::Client, now: chrono::DateTime<chrono::Utc>
                     }
                     else { // If user doesn't exist in jira anymore, we use purge_data.time to remove from database
                         if data.should_remove_user(now) {
-                            if let Ok(result) = client.delete_purge_user(data).await {
-                                if result.deleted_count > 0 {
-                                    log::info!("Robot {:?} has remove user {:?} from purging queue (NotFound)", robot.info.name, data.user.display_name);
+                            match client.delete_purge_user(data).await {
+                                Ok(result) => {
+                                    if result.deleted_count > 0 {
+                                        log::info!("Robot {:?} successfully remove user {:?} from purging queue", robot.info.name, data.user.display_name);
+                                    }
+                                    else {
+                                        log::warn!("Robot {:?} failed to find user {:?} from purging queue", robot.info.name, data.user.display_name);
+                                    }
+                                },
+                                Err(error) => {
+                                    log::error!("Robot {:?} failed to remove user {:?} from purging queue ({:?})", robot.info.name, data.user.display_name, error);
                                 }
                             }
                         }

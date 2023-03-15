@@ -81,6 +81,31 @@ pub struct PurgeData {
     pub reasons: Vec<PurgeReason>,
 }
 
+#[serde_with::skip_serializing_none]
+#[derive(PartialEq, Eq, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PurgeLog {
+    pub user: models::jira::User,
+    pub robot: models::robot::Robot,
+    pub reasons: Vec<PurgeReason>,
+    pub time: chrono::DateTime<chrono::Utc>,
+}
+
+impl PurgeLog {
+    pub fn new(
+        robot: &models::robot::Robot,
+        user: &models::jira::User,
+        reasons: Vec<PurgeReason>,
+        time: chrono::DateTime<chrono::Utc>,
+    ) -> Self {
+        return Self {
+            user: user.clone(),
+            robot: robot.clone(),
+            reasons,
+            time,
+        };
+    }
+}
+
 impl PurgeData {
     pub fn new(
         robot: &models::robot::Robot,

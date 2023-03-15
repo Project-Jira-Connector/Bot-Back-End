@@ -136,6 +136,18 @@ impl Client {
             .await;
     }
 
+    pub async fn add_purge_log(
+        &self,
+        log: &models::purge::PurgeLog,
+    ) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
+        return self
+            .mongodb
+            .database("robots")
+            .collection::<mongodb::bson::Document>("purge_logs")
+            .insert_one(mongodb::bson::to_document(&log).unwrap(), None)
+            .await;
+    }
+
     pub async fn get_robots_with(
         &self,
         robot: &models::robot::RobotQuery,
@@ -264,7 +276,7 @@ impl Client {
         &self,
         robot: &models::robot::Robot,
         purge: &models::purge::PurgeData,
-    ) -> bool {
+    ) -> Result<reqwest::Response, reqwest::Error> {
         return self
             .reqwest
             .post(format!(
@@ -279,7 +291,6 @@ impl Client {
                 )),
             )
             .send()
-            .await
-            .is_ok();
+            .await;
     }
 }
