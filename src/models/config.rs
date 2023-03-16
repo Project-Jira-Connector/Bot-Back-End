@@ -80,12 +80,27 @@ impl Notification {
     }
 }
 
+pub struct Storage {
+    pub access_key: String,
+    pub secret_key: String,
+}
+
+impl Storage {
+    pub fn new() -> Self {
+        return Self {
+            access_key: std::env::var("AWS_ACCESS_KEY").expect("AWS_ACCESS_KEY must be defined"),
+            secret_key: std::env::var("AWS_SECRET_KEY").expect("AWS_SECRET_KEY must be defined"),
+        };
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Environment {
     pub server: Server,
     pub database: Database,
     pub notification: Notification,
     pub schedule: cron::Schedule,
+    pub storage: Storage,
 }
 
 impl Environment {
@@ -98,6 +113,7 @@ impl Environment {
                 .expect("SCHEDULE must be defined")
                 .parse()
                 .expect("SCHEDULE must be a valid schedule"),
+            storage: Storage::new(),
         };
     }
 }
