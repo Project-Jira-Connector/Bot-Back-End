@@ -80,16 +80,28 @@ impl Notification {
     }
 }
 
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Clone,
+    Hash,
+    Default,
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct Storage {
-    pub access_key: String,
-    pub secret_key: String,
+    pub access: String,
+    pub secret: String,
 }
 
 impl Storage {
     pub fn new() -> Self {
         return Self {
-            access_key: std::env::var("AWS_ACCESS_KEY").expect("AWS_ACCESS_KEY must be defined"),
-            secret_key: std::env::var("AWS_SECRET_KEY").expect("AWS_SECRET_KEY must be defined"),
+            access: std::env::var("AWS_ACCESS_KEY").expect("AWS_ACCESS_KEY must be defined"),
+            secret: std::env::var("AWS_SECRET_KEY").expect("AWS_SECRET_KEY must be defined"),
         };
     }
 }

@@ -1,14 +1,20 @@
 use crate::*;
 use rayon::prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Client {
     pub reqwest: reqwest::Client,
     pub mongodb: mongodb::Client,
+    pub rusoto: rusoto_s3::S3Client,
 }
 
 impl Client {
-    pub async fn new(mongodb_username: &String, mongodb_password: &String) -> Self {
+    pub async fn new(
+        mongodb_username: &String,
+        mongodb_password: &String,
+        aws_access_key: &String,
+        aws_secret_key: &String,
+    ) -> Self {
         return Self {
             reqwest: reqwest::Client::new(),
             mongodb: mongodb::Client::with_options(
@@ -19,6 +25,18 @@ impl Client {
                 .unwrap(),
             )
             .unwrap(),
+            rusoto: rusoto_s3::S3Client::new_with(
+                        rusoto_core::HttpClient::new().unwrap(),
+                        rusoto_credential::StaticProvider::from(rusoto_credential::AwsCredentials::new(
+                            aws_access_key,
+                            aws_secret_key,
+                            None,
+                            None,
+                        )),
+                        rusoto_core::Region::Custom {
+                            name: "s3-sgp1".into(),
+                            endpoint: "https://sgp1.digitaloceanspaces.com".into(),
+                        })
         };
     }
 
