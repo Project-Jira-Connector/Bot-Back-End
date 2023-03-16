@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
     let client = utils::client::Client::new(
         &environment.database.username,
         &environment.database.password,
-    );
+    ).await;
 
     // Run scheduler.
     let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);

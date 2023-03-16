@@ -8,14 +8,14 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(mongodb_username: &String, mongodb_password: &String) -> Self {
+    pub async fn new(mongodb_username: &String, mongodb_password: &String) -> Self {
         return Self {
             reqwest: reqwest::Client::new(),
             mongodb: mongodb::Client::with_options(
-                futures::executor::block_on(mongodb::options::ClientOptions::parse(format!(
+               mongodb::options::ClientOptions::parse(format!(
                     "mongodb://{}:{}@ac-mt2requ-shard-00-00.pflxmhx.mongodb.net:27017,ac-mt2requ-shard-00-01.pflxmhx.mongodb.net:27017,ac-mt2requ-shard-00-02.pflxmhx.mongodb.net:27017/?ssl=true&replicaSet=atlas-g6x5st-shard-0&authSource=admin&retryWrites=true&w=majority",
                     mongodb_username, mongodb_password
-                )))
+                )).await
                 .unwrap(),
             )
             .unwrap(),
