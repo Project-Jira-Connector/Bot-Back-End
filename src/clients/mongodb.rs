@@ -48,4 +48,15 @@ impl Client {
             .find_one(mongodb::bson::to_document(&robot_id)?, None)
             .await?);
     }
+
+    pub async fn get_robots(&self) -> Result<Vec<models::robot::RobotData>, mongodb::error::Error> {
+        return futures::TryStreamExt::try_collect(
+            self.client
+                .database("robots")
+                .collection::<models::robot::RobotData>("robots")
+                .find(None, None)
+                .await?,
+        )
+        .await;
+    }
 }

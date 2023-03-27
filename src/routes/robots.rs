@@ -20,36 +20,58 @@ pub async fn get(
             "Rusoto client not found".to_string(),
         ))?;
 
-    let robot_data = mongodb
-        .get_robot(&robot_id)
-        .await
-        .map_err(|error| {
-            errors::error::Error::new(
-                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-                error.to_string(),
-            )
-        })?
-        .ok_or(errors::error::Error::new(
-            actix_web::http::StatusCode::BAD_REQUEST,
-            format!(
-                "Robot with unique id ({:?}) doesn't exist",
-                robot_id.unique.unwrap()
-            ),
-        ))?;
+    if let Some(id) = robot_id.unique {
+        let robot_data = mongodb
+            .get_robot(&robot_id)
+            .await
+            .map_err(|error| {
+                errors::error::Error::new(
+                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    error.to_string(),
+                )
+            })?
+            .ok_or(errors::error::Error::new(
+                actix_web::http::StatusCode::BAD_REQUEST,
+                format!("Robot with unique id ({:?}) doesn't exist", id),
+            ))?;
 
-    let robot_config = rusoto
-        .get_robot(&robot_data.id.unique.unwrap())
-        .await
-        .map_err(|error| {
+        let robot_config = rusoto.get_robot(&id).await.map_err(|error| {
             errors::error::Error::new(
                 actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
                 error.to_string(),
             )
         })?;
 
-    return Ok(
-        actix_web::HttpResponse::Ok().json(models::robot::Robot::new(robot_data, robot_config))
-    );
+        return Ok(
+            actix_web::HttpResponse::Ok().json(models::robot::Robot::new(robot_data, robot_config))
+        );
+    }
+
+    let robots_data = mongodb.get_robots().await.map_err(|error| {
+        errors::error::Error::new(
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            error.to_string(),
+        )
+    })?;
+
+    let mut robots = Vec::<models::robot::Robot>::with_capacity(robots_data.len());
+    
+    for robot_data in robots_data {
+        if let Ok(robot_config) = rusoto
+            .get_robot(&robot_data.id.unique.unwrap())
+            .await
+            .map_err(|error| {
+                errors::error::Error::new(
+                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    error.to_string(),
+                )
+            })
+        {
+            robots.push(models::robot::Robot::new(robot_data, robot_config));
+        }
+    }
+
+    return Ok(actix_web::HttpResponse::Ok().json(robots));
 }
 
 pub async fn post(
