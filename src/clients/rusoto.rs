@@ -27,21 +27,45 @@ impl Client {
     pub async fn add_robot(
         &self,
         robot: &models::robot::Robot,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // if robot.id.is_none() {
-        //     robot.id = Some(mongodb::bson::oid::ObjectId::new());
-        // }
-        // let request = rusoto_s3::PutObjectRequest {
-        //     bucket: String::from("atlassianbot"),
-        //     key: format!("robots/robot_{}.yaml", robot.id.unwrap()),
-        //     content_type: Some(String::from("application/octet-stream")),
-        //     body: Some(rusoto_core::ByteStream::from(
-        //         serde_yaml::to_string(&robot)?.into_bytes(),
-        //     )),
-        //     ..Default::default()
-        // };
-        // let response = rusoto_s3::S3::put_object(&self.client, request).await?;
-        return Ok(());
+    ) -> Result<rusoto_s3::PutObjectOutput, Box<dyn std::error::Error>> {
+        let request = rusoto_s3::PutObjectRequest {
+            bucket: "atlassianbot".to_string(),
+            key: format!(
+                "robots/robot_{}.yaml",
+                robot
+                    .data
+                    .id
+                    .unique
+                    .ok_or("Robot unique id is not defined")?
+            ),
+            content_type: Some("application/octet-stream".to_string()),
+            body: Some(rusoto_core::ByteStream::from(
+                serde_yaml::to_string(&robot.config)?.into_bytes(),
+            )),
+            ..Default::default()
+        };
+        return Ok(rusoto_s3::S3::put_object(&self.client, request).await?);
+    }
+
+    pub async fn get_robot(
+        &self,
+        key: &mongodb::bson::oid::ObjectId,
+    ) -> Result<models::robot::RobotConfig, Box<dyn std::error::Error>> {
+        let request = rusoto_s3::GetObjectRequest {
+            bucket: String::from("atlassianbot"),
+            key: format!("robots/robot_{}.yaml", key),
+            ..Default::default()
+        };
+        let response = rusoto_s3::S3::get_object(&self.client, request)
+            .await
+            .map_err(|_| "Failed to retrieve robot configuration")?;
+        let mut buffer = String::new();
+        tokio::io::AsyncReadExt::read_to_string(
+            &mut response.body.unwrap().into_async_read(),
+            &mut buffer,
+        )
+        .await?;
+        return Ok(serde_yaml::from_str(&buffer)?);
     }
 
     // pub async fn delete_robot(
@@ -58,26 +82,6 @@ impl Client {
     //     };
     //     let response = rusoto_s3::S3::delete_object(&self.client, request).await?;
     //     return Ok(());
-    // }
-
-    // async fn get_robot(
-    //     &self,
-    //     key: String,
-    // ) -> Result<models::robot::Robot, Box<dyn std::error::Error>> {
-    //     let request = rusoto_s3::GetObjectRequest {
-    //         bucket: String::from("atlassianbot"),
-    //         key,
-    //         ..Default::default()
-    //     };
-    //     let response = rusoto_s3::S3::get_object(&self.client, request).await?;
-    //     let mut buffer = String::new();
-    //     tokio::io::AsyncReadExt::read_to_string(
-    //         &mut response.body.unwrap().into_async_read(),
-    //         &mut buffer,
-    //     )
-    //     .await?;
-    //     let robot: models::robot::Robot = serde_json::from_str(&buffer)?;
-    //     return Ok(robot);
     // }
 
     // pub async fn get_robots(

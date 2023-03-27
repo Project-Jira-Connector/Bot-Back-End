@@ -1,5 +1,3 @@
-use mongodb::results::InsertOneResult;
-
 use crate::*;
 
 #[derive(Clone)]
@@ -21,16 +19,33 @@ impl Client {
 
     pub async fn add_robot(
         &self,
-        robot: &models::robot::Robot,
-    ) -> Result<InsertOneResult, mongodb::error::Error> {
-        return Err(mongodb::error::Error::from(
-            mongodb::error::ErrorKind::SessionsNotSupported,
-        ));
-        // return Ok(self
-        //     .client
-        //     .database("robots")
-        //     .collection::<mongodb::bson::Document>("robots")
-        //     .insert_one(mongodb::bson::to_document(&robot).unwrap(), None)
-        //     .await?);
+        robot: &mut models::robot::Robot,
+    ) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
+        if robot.data.created.is_none() {
+            robot.data.created = Some(chrono::Utc::now());
+        }
+
+        let insert_one_result = self
+            .client
+            .database("robots")
+            .collection::<mongodb::bson::Document>("robots")
+            .insert_one(mongodb::bson::to_document(&robot.data)?, None)
+            .await?;
+
+        robot.data.id.unique = insert_one_result.inserted_id.as_object_id();
+
+        return Ok(insert_one_result);
+    }
+
+    pub async fn get_robot(
+        &self,
+        robot_id: &models::robot::RobotIdentifier,
+    ) -> Result<Option<models::robot::RobotData>, mongodb::error::Error> {
+        return Ok(self
+            .client
+            .database("robots")
+            .collection::<models::robot::RobotData>("robots")
+            .find_one(mongodb::bson::to_document(&robot_id)?, None)
+            .await?);
     }
 }

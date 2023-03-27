@@ -24,12 +24,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rusoto_client = clients::rusoto::Client::new(rusoto_config)?;
 
     // Run scheduler.
-    let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
-    let scheduler_handle = actix_rt::spawn(utils::scheduler::run(
-        client.clone(),
-        environment.clone(),
-        scheduler_exit_receiver,
-    ));
+    // let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
+    // let scheduler_handle = actix_rt::spawn(utils::scheduler::run(
+    //     client.clone(),
+    //     environment.clone(),
+    //     scheduler_exit_receiver,
+    // ));
 
     // Run server.
     actix_web::HttpServer::new(move || {
@@ -39,25 +39,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .app_data(actix_web::web::Data::new(reqwest_client.clone()))
             .app_data(actix_web::web::Data::new(mongodb_client.clone()))
             .app_data(actix_web::web::Data::new(rusoto_client.clone()))
-            .app_data(
-                actix_web::web::JsonConfig::default().error_handler(errors::handler::json_handler),
-            )
+            .app_data(actix_web::web::JsonConfig::default().error_handler(errors::handler::json))
+            .app_data(actix_web::web::QueryConfig::default().error_handler(errors::handler::query))
             .service(
                 actix_web::web::resource("/robots")
                     .route(actix_web::web::get().to(routes::robots::get))
                     .route(actix_web::web::post().to(routes::robots::post))
-                    .route(actix_web::web::patch().to(routes::robots::patch))
-                    .route(actix_web::web::delete().to(routes::robots::delete)),
+                    .route(actix_web::web::to(errors::handler::method_not_allowed)),
             )
-            .default_service(actix_web::web::route().to(errors::handler::handler))
+            .default_service(actix_web::web::route().to(errors::handler::not_found))
     })
     .bind((server_config.address, server_config.port))?
     .run()
     .await?;
 
     // Stop scheduler.
-    scheduler_exit_sender.send(()).await.unwrap();
-    scheduler_handle.await.unwrap();
+    // scheduler_exit_sender.send(()).await.unwrap();
+    // scheduler_handle.await.unwrap();
 
     return Ok(());
 }
