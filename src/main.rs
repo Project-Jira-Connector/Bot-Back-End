@@ -25,12 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rusoto_client = clients::rusoto::Client::new(rusoto_config)?;
 
     // Run scheduler.
-    // let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
-    // let scheduler_handle = actix_rt::spawn(utils::scheduler::run(
-    //     client.clone(),
-    //     environment.clone(),
-    //     scheduler_exit_receiver,
-    // ));
+    //let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
+    //let scheduler_handle = actix_rt::spawn(utils::scheduler::run(scheduler_exit_receiver, scheduler_config, mongodb_client, rusoto_client));
 
     // Run server.
     actix_web::HttpServer::new(move || {
@@ -57,8 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     // Stop scheduler.
-    // scheduler_exit_sender.send(()).await.unwrap();
-    // scheduler_handle.await.unwrap();
+    //scheduler_exit_sender.send(()).await.unwrap();
+    //scheduler_handle.await.unwrap();
 
     return Ok(());
 }
