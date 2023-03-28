@@ -32,7 +32,7 @@ pub async fn get(
             })?
             .ok_or(errors::error::Error::new(
                 actix_web::http::StatusCode::NOT_FOUND,
-                format!("Robot with unique id ({:?}) doesn't exist", id),
+                format!("Robot with unique id ({:?}) doesn't exist", id.to_string()),
             ))?;
 
         let robot_config = rusoto.get_robot(&id).await.map_err(|error| {

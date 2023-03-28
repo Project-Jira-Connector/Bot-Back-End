@@ -1,15 +1,4 @@
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Hash,
-    Default,
-    Debug,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[derive(PartialEq, PartialOrd, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Robot {
     #[serde(flatten)]
     pub data: RobotData,
@@ -17,18 +6,7 @@ pub struct Robot {
     pub config: RobotConfig,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Hash,
-    Default,
-    Debug,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[derive(PartialEq, PartialOrd, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RobotConfig {
     #[serde(flatten)]
     pub credential: RobotCredential,
@@ -96,22 +74,13 @@ pub struct RobotCredential {
     pub cloud_session_token: String,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Hash,
-    Default,
-    Debug,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[derive(PartialEq, PartialOrd, Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RobotScheduler {
     pub schedule: i64,
     pub last_active: i64,
+    pub double_name_threshold: f32,
+    pub double_email_threshold: f32,
     pub check_double_name: bool,
     pub check_double_email: bool,
     pub check_active_status: bool,
