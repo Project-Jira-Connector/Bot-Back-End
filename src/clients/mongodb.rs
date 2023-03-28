@@ -59,4 +59,16 @@ impl Client {
         )
         .await;
     }
+
+    pub async fn delete_robot(
+        &self,
+        robot_id: &models::robot::RobotIdentifier,
+    ) -> Result<mongodb::results::DeleteResult, mongodb::error::Error> {
+        return Ok(self
+            .client
+            .database("robots")
+            .collection::<models::robot::RobotData>("robots")
+            .delete_one(mongodb::bson::to_document(&robot_id)?, None)
+            .await?);
+    }
 }

@@ -31,7 +31,7 @@ pub async fn get(
                 )
             })?
             .ok_or(errors::error::Error::new(
-                actix_web::http::StatusCode::BAD_REQUEST,
+                actix_web::http::StatusCode::NOT_FOUND,
                 format!("Robot with unique id ({:?}) doesn't exist", id),
             ))?;
 
@@ -42,9 +42,8 @@ pub async fn get(
             )
         })?;
 
-        return Ok(
-            actix_web::HttpResponse::Ok().json(models::robot::Robot::new(robot_data, robot_config))
-        );
+        return Ok(actix_web::HttpResponse::Found()
+            .json(models::robot::Robot::new(robot_data, robot_config)));
     }
 
     let robots_data = mongodb.get_robots().await.map_err(|error| {
@@ -55,7 +54,7 @@ pub async fn get(
     })?;
 
     let mut robots = Vec::<models::robot::Robot>::with_capacity(robots_data.len());
-    
+
     for robot_data in robots_data {
         if let Ok(robot_config) = rusoto
             .get_robot(&robot_data.id.unique.unwrap())
@@ -71,7 +70,7 @@ pub async fn get(
         }
     }
 
-    return Ok(actix_web::HttpResponse::Ok().json(robots));
+    return Ok(actix_web::HttpResponse::Found().json(robots));
 }
 
 pub async fn post(
@@ -119,15 +118,50 @@ pub async fn post(
 //     ));
 // }
 
-// pub async fn delete(
-//     request: actix_web::HttpRequest,
-//     id: mongodb::bson::oid::ObjectId,
-// ) -> Result<actix_web::HttpResponse, Box<dyn std::error::Error>> {
-//     return Ok(actix_web::HttpResponse::Ok().json(
-//         request
-//             .app_data::<actix_web::web::Data<clients::rusoto::Client>>()
-//             .ok_or("Rusoto client not found")?
-//             .delete_robot(id)
-//             .await?,
-//     ));
-// }
+pub async fn delete(
+    request: actix_web::HttpRequest,
+    robot_id_query: actix_web::web::Query<models::robot::RobotIdentifier>,
+) -> Result<actix_web::HttpResponse, actix_web::Error> {
+    let robot_id = robot_id_query.into_inner();
+
+    robot_id.unique.ok_or(errors::error::Error::new(
+        actix_web::http::StatusCode::BAD_REQUEST,
+        "'_id' can't be 'None'".to_string(),
+    ))?;
+
+    let mongodb = request
+        .app_data::<actix_web::web::Data<clients::mongodb::Client>>()
+        .ok_or(errors::error::Error::new(
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "MongoDB client not found".to_string(),
+        ))?;
+
+    let result = mongodb.delete_robot(&robot_id).await.map_err(|error| {
+        errors::error::Error::new(
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            error.to_string(),
+        )
+    })?;
+
+    if result.deleted_count < 1 {
+        return Err(errors::error::Error::new(
+            actix_web::http::StatusCode::NOT_FOUND,
+            format!(
+                "Robot with id {} couldn't be found",
+                robot_id.unique.unwrap()
+            ),
+        )
+        .into());
+    }
+
+    let rusoto = request
+        .app_data::<actix_web::web::Data<clients::rusoto::Client>>()
+        .ok_or(errors::error::Error::new(
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "Rusoto client not found".to_string(),
+        ))?;
+
+    rusoto.delete_robot(&robot_id.unique.unwrap()).await?;
+
+    return Ok(actix_web::HttpResponse::Ok().finish());
+}

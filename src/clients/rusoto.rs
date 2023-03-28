@@ -68,21 +68,17 @@ impl Client {
         return Ok(serde_yaml::from_str(&buffer)?);
     }
 
-    // pub async fn delete_robot(
-    //     &self,
-    //     robot: &models::robot::RobotQuery,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     let request = rusoto_s3::DeleteObjectRequest {
-    //         bucket: String::from("atlassianbot"),
-    //         key: format!(
-    //             "robots/robot_{}.yaml",
-    //             robot.id.ok_or("Robot id is not specified")?
-    //         ),
-    //         ..Default::default()
-    //     };
-    //     let response = rusoto_s3::S3::delete_object(&self.client, request).await?;
-    //     return Ok(());
-    // }
+    pub async fn delete_robot(
+        &self,
+        key: &mongodb::bson::oid::ObjectId,
+    ) -> Result<rusoto_s3::DeleteObjectOutput, Box<dyn std::error::Error>> {
+        let request = rusoto_s3::DeleteObjectRequest {
+            bucket: String::from("atlassianbot"),
+            key: format!("robots/robot_{}.yaml", key),
+            ..Default::default()
+        };
+        return Ok(rusoto_s3::S3::delete_object(&self.client, request).await?);
+    }
 
     // pub async fn get_robots(
     //     &self,
