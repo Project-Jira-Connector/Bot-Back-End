@@ -17,6 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mongodb_config = configs::mongodb::Config::new()?;
     let rusoto_config = configs::rusoto::Config::new()?;
     let server_config = configs::server::Config::new()?;
+    let scheduler_config = configs::scheduler::Config::new()?;
 
     // Creates a client to communicate with jira, mongodb and digitalocean.
     let reqwest_client = reqwest::Client::new();
