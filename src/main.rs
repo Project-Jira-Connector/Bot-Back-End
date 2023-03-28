@@ -45,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 actix_web::web::resource("/robots")
                     .route(actix_web::web::get().to(routes::robots::get))
                     .route(actix_web::web::post().to(routes::robots::post))
+                    .route(actix_web::web::patch().to(routes::robots::patch))
                     .route(actix_web::web::delete().to(routes::robots::delete))
                     .route(actix_web::web::to(errors::handler::method_not_allowed)),
             )

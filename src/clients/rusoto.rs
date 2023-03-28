@@ -52,7 +52,7 @@ impl Client {
         key: &mongodb::bson::oid::ObjectId,
     ) -> Result<models::robot::RobotConfig, Box<dyn std::error::Error>> {
         let request = rusoto_s3::GetObjectRequest {
-            bucket: String::from("atlassianbot"),
+            bucket: "atlassianbot".to_string(),
             key: format!("robots/robot_{}.yaml", key),
             ..Default::default()
         };
@@ -73,11 +73,26 @@ impl Client {
         key: &mongodb::bson::oid::ObjectId,
     ) -> Result<rusoto_s3::DeleteObjectOutput, Box<dyn std::error::Error>> {
         let request = rusoto_s3::DeleteObjectRequest {
-            bucket: String::from("atlassianbot"),
+            bucket: "atlassianbot".to_string(),
             key: format!("robots/robot_{}.yaml", key),
             ..Default::default()
         };
         return Ok(rusoto_s3::S3::delete_object(&self.client, request).await?);
+    }
+
+    pub async fn patch_robot(
+        &self,
+        robot: &models::robot::Robot,
+    ) -> Result<rusoto_s3::PutObjectOutput, Box<dyn std::error::Error>> {
+        let request = rusoto_s3::PutObjectRequest {
+            bucket: "atlassianbot".to_string(),
+            key: format!("robots/robot_{}.yaml", robot.data.id.unique.unwrap()),
+            body: Some(rusoto_core::ByteStream::from(
+                serde_yaml::to_string(&robot.config)?.into_bytes(),
+            )),
+            ..Default::default()
+        };
+        return Ok(rusoto_s3::S3::put_object(&self.client, request).await?);
     }
 
     // pub async fn get_robots(
@@ -111,66 +126,5 @@ impl Client {
     //         })
     //         .collect::<Vec<_>>();
     //     return Ok(robots);
-    // }
-
-    // pub async fn patch_robot(
-    //     &self,
-    //     robot_query: &models::robot::RobotQuery,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     let mut robots = self.get_robots(robot_query).await?;
-    //     if robots.len() != 1 {
-    //         return Ok(());
-    //     }
-    //     let robot = &mut robots[0];
-
-    //     if robot_query.info.name.is_some() {
-    //         robot.info.name = robot_query.info.name.as_ref().unwrap().clone();
-    //     }
-    //     if robot_query.info.description.is_some() {
-    //         robot.info.name = robot_query.info.description.as_ref().unwrap().clone();
-    //     }
-
-    //     if robot_query.credential.cloud_session_token.is_some() {
-    //         robot.credential.cloud_session_token = robot_query
-    //             .credential
-    //             .cloud_session_token
-    //             .as_ref()
-    //             .unwrap()
-    //             .clone();
-    //     }
-    //     if robot_query.credential.platform_api_key.is_some() {
-    //         robot.credential.platform_api_key = robot_query
-    //             .credential
-    //             .platform_api_key
-    //             .as_ref()
-    //             .unwrap()
-    //             .clone();
-    //     }
-    //     if robot_query.credential.platform_email.is_some() {
-    //         robot.credential.platform_email = robot_query
-    //             .credential
-    //             .platform_email
-    //             .as_ref()
-    //             .unwrap()
-    //             .clone();
-    //     }
-    //     if robot_query.credential.platform_type.is_some() {
-    //         robot.credential.platform_type = robot_query
-    //             .credential
-    //             .platform_type
-    //             .as_ref()
-    //             .unwrap()
-    //             .clone();
-    //     }
-
-    //     if robot_query.scheduler.active.is_some() {
-    //         robot.credential.platform_type = robot_query
-    //             .credential
-    //             .platform_type
-    //             .as_ref()
-    //             .unwrap()
-    //             .clone();
-    //     }
-    //     return Ok(());
     // }
 }

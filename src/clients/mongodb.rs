@@ -71,4 +71,20 @@ impl Client {
             .delete_one(mongodb::bson::to_document(&robot_id)?, None)
             .await?);
     }
+
+    pub async fn patch_robot(
+        &self,
+        robot: &models::robot::Robot,
+    ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
+        return self
+            .client
+            .database("robots")
+            .collection::<mongodb::bson::Document>("robots")
+            .update_one(
+                mongodb::bson::doc! {"_id": robot.data.id.unique.unwrap()},
+                mongodb::bson::doc! {"$set": mongodb::bson::to_document(&robot.data).unwrap()},
+                None,
+            )
+            .await;
+    }
 }
