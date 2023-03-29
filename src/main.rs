@@ -14,26 +14,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
 
     // Get our environment variables.
+    let reqwest_config = configs::reqwest::Config::new()?;
     let mongodb_config = configs::mongodb::Config::new()?;
     let rusoto_config = configs::rusoto::Config::new()?;
     let server_config = configs::server::Config::new()?;
     let scheduler_config = configs::scheduler::Config::new()?;
+    let notification_config = configs::notification::Config::new()?;
 
     // Creates a client to communicate with jira, mongodb and digitalocean.
-    let reqwest_client = reqwest::Client::new();
+    let reqwest_client = clients::reqwest::Client::new(reqwest_config);
     let mongodb_client = clients::mongodb::Client::new(mongodb_config).await?;
     let rusoto_client = clients::rusoto::Client::new(rusoto_config)?;
 
     // Run scheduler.
-    //let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
-    //let scheduler_handle = actix_rt::spawn(utils::scheduler::run(scheduler_exit_receiver, scheduler_config, mongodb_client, rusoto_client));
+    let (scheduler_exit_sender, scheduler_exit_receiver) = tokio::sync::mpsc::channel(1);
+    let scheduler_handle = actix_rt::spawn(utils::scheduler::run(
+        scheduler_exit_receiver,
+        scheduler_config,
+        notification_config,
+        reqwest_client,
+        mongodb_client.clone(),
+        rusoto_client.clone(),
+    ));
 
     // Run server.
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
             .wrap(actix_cors::Cors::permissive())
             .wrap(actix_web::middleware::Logger::default())
-            .app_data(actix_web::web::Data::new(reqwest_client.clone()))
             .app_data(actix_web::web::Data::new(mongodb_client.clone()))
             .app_data(actix_web::web::Data::new(rusoto_client.clone()))
             .app_data(actix_web::web::JsonConfig::default().error_handler(errors::handler::json))
@@ -53,8 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     // Stop scheduler.
-    //scheduler_exit_sender.send(()).await.unwrap();
-    //scheduler_handle.await.unwrap();
+    scheduler_exit_sender.send(()).await.unwrap();
+    scheduler_handle.await.unwrap();
 
     return Ok(());
 }
