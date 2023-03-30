@@ -61,11 +61,7 @@ impl Client {
             ))
             .header(
                 reqwest::header::AUTHORIZATION,
-                base64::encode(format!(
-                    "{}:{}",
-                    robot.config.credential.platform_email,
-                    robot.config.credential.platform_api_key
-                )),
+                format!("Basic {}", base64::encode(&format!("{}:{}", robot.config.credential.platform_email, robot.config.credential.platform_api_key))),
             )
             .send()
             .await;

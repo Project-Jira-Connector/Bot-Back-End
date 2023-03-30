@@ -154,11 +154,10 @@ impl PurgeData {
                 notification_password.clone(),
             ))
             .build();
-
-        //let body = format!("<html><head><title>Notification: Jira Access Removal</title></head><body><p>Dear {},</p><p>We regret to inform you that your access to Jira will be removed on {}. This action has been taken due to {:?}.</p><p>If you have any questions or concerns, please contact {}.</p><p>Thank you for your understanding.</p><a href=\"https://id.atlassian.com/login\" class=\"btn\">Go to Jira Login Page</a></body></html>", self.user.display_name, self.time.format("%Y-%B-%d %H:%M:%S").to_string(), self.reasons, contact);
-
+        
         let body = format!(
-            r#"<!DOCTYPE html>
+            r#"
+            <!DOCTYPE html>
             <html>
               <head>
                 <title>Notification: Jira Access Removal</title>
@@ -193,7 +192,7 @@ impl PurgeData {
                   .btn {{
                     display: inline-block;
                     padding: 10px 20px;
-                    background-color: #4CAF50;
+                    background-color: #1e88e5;
                     color: #fff;
                     text-decoration: none;
                     border-radius: 4px;
@@ -201,7 +200,7 @@ impl PurgeData {
                   }}
             
                   .btn:hover {{
-                    background-color: #3e8e41;
+                    background-color: #0d47a1;
                   }}
                 </style>
               </head>

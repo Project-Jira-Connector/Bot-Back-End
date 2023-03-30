@@ -28,3 +28,4 @@ rusoto_s3 = { version = "0.48.0" }
 rusoto_core = { version = "0.48.0" }
 rusoto_signature = { version = "0.48.0" }
 rusoto_credential = { version = "0.48.0" }
+csv = { version = "1.2.1" }

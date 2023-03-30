@@ -53,10 +53,29 @@ async fn tick(
                 // Change the robot status to become updated
                 robot.data.modified = Some(now);
                 if let Err(error) = mongodb.patch_robot(robot).await {
-                    log::error!("{}", error);
+                    log::error!("Failed to set robot status ({})", error);
                 }
 
-                //routes::report::report(notification_config.email, &robot.config.credential.platform_email, &robot.data.name, )
+                match routes::report::get_report(mongodb, &robot.data.id).await {
+                    Ok(report) => {
+                        match routes::report::report_to(
+                            notification_config.email.clone(),
+                            notification_config.password.clone(),
+                            &robot.config.credential.platform_email,
+                            format!("{:#?}", report),
+                        ) {
+                            Ok(_result) => {
+                                log::info!("Robot {} has send purge users log to {:?}", robot.data.name, robot.config.credential.platform_email);
+                            },
+                            Err(error) => {
+                                log::error!("Failed to send purge users log ({})", error);
+                            }
+                        }
+                    },
+                    Err(error) => {
+                        log::error!("Failed to get purge users log ({})", error);
+                    }
+                }
 
                 // Get all jira users with duplicate attributes
                 let duplicate_users = users
@@ -74,7 +93,7 @@ async fn tick(
                                     let similarity = strsim::normalized_damerau_levenshtein(
                                         &user.display_name,
                                         &other_user.display_name,
-                                    );
+                                    ) * 100.0;
                                     if similarity >= robot.config.scheduler.double_name_threshold.into() {
                                         reasons.insert(models::purge::PurgeReason::DuplicateName);
                                     }
@@ -83,7 +102,7 @@ async fn tick(
                                     let similarity = strsim::normalized_damerau_levenshtein(
                                         &user.email,
                                         &other_user.email,
-                                    );
+                                    ) * 100.0;
                                     if similarity >= robot.config.scheduler.double_email_threshold.into()  {
                                         reasons.insert(models::purge::PurgeReason::DuplicateEmail);
                                     }
@@ -249,14 +268,19 @@ async fn tick(
                                 Ok(_result) => match mongodb.delete_purge_user(data).await {
                                     Ok(result) => {
                                         if result.deleted_count > 0 {
-                                            //match reqwest.remove_user_from_jira(robot, data).await {
-                                               // Ok(_result) => {
-                                                    log::info!("Robot {:?} has remove user {:?} from organization", robot.data.name, user.display_name);
-                                                //},
-                                                //Err(error) => {
-                                                    //log::error!("Robot {:?} failed to remove user {:?} from organization ({:?})", robot.data.name, data.user.display_name, error);
-                                                //}
-                                            //}
+                                            match reqwest.remove_user_from_jira(robot, data).await {
+                                               Ok(response) => {
+                                                    if response.status() == reqwest::StatusCode::NO_CONTENT {
+                                                        log::info!("Robot {:?} has remove user {:?} from organization because of the following reason(s): {:?}", robot.data.name, user.display_name, data.reasons);
+                                                    }
+                                                    else {
+                                                        log::error!("Robot {:?} failed to remove user {:?} from organization ({:?})", robot.data.name, data.user.display_name, response);
+                                                    }
+                                                },
+                                                Err(error) => {
+                                                    log::error!("Robot {:?} failed to remove user {:?} from organization ({:?})", robot.data.name, data.user.display_name, error);
+                                                }
+                                            }
                                         }
                                         else {
                                             log::warn!("Robot {:?} failed to find user {:?} from purging queue", robot.data.name, data.user.display_name);
