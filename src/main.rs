@@ -54,6 +54,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .route(actix_web::web::delete().to(routes::robots::delete))
                     .route(actix_web::web::to(errors::handler::method_not_allowed)),
             )
+            .service(
+                actix_web::web::resource("/report")
+                    .route(actix_web::web::get().to(routes::report::get))
+                    .route(actix_web::web::to(errors::handler::method_not_allowed)),
+            )
             .default_service(actix_web::web::route().to(errors::handler::not_found))
     })
     .bind((server_config.address, server_config.port))?

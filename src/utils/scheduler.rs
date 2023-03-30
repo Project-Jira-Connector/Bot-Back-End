@@ -56,6 +56,8 @@ async fn tick(
                     log::error!("{}", error);
                 }
 
+                //routes::report::report(notification_config.email, &robot.config.credential.platform_email, &robot.data.name, )
+
                 // Get all jira users with duplicate attributes
                 let duplicate_users = users
                     .par_iter()
@@ -132,6 +134,7 @@ async fn tick(
                 filtered_users.extend(duplicate_users);
                 filtered_users.extend(inactive_users);
 
+                // Combine or remove duplicate users data since we seperate the loop between duplicate and inactivity
                 let unique_filtered_users = filtered_users
                     .into_iter()
                     .fold(
@@ -155,7 +158,8 @@ async fn tick(
                     .into_iter()
                     .map(|(_, user)| user)
                     .collect::<Vec<_>>();
-
+                
+                // Add users to purge users queue
                 for (user, reasons) in unique_filtered_users {
                     let purge_data = models::purge::PurgeData::new(
                         robot,
@@ -164,14 +168,19 @@ async fn tick(
                         now + chrono::Duration::days(7),
                     );
 
-                    if let Ok(result) = mongodb.add_purge_user(&purge_data).await  {
-                        if result.upserted_id.is_some() {
-                            log::info!(
-                                "User {:?} has been queued by robot {:?} for purging because of the following reason(s): {:?}",
-                                user.display_name,
-                                robot.data.name,
-                                purge_data.reasons,
-                            );
+                    match mongodb.add_purge_user(&purge_data).await {
+                        Ok(result) => {
+                            if result.upserted_id.is_some() {
+                                log::info!(
+                                    "User {:?} has been queued by robot {:?} for purging because of the following reason(s): {:?}",
+                                    user.display_name,
+                                    robot.data.name,
+                                    purge_data.reasons,
+                                );
+                            }
+                        },
+                        Err(error) => {
+                            log::error!("Robot {:?} failed to queue user {:?} ({})", robot.data.name, user.display_name, error);
                         }
                     }
                 }
@@ -218,9 +227,14 @@ async fn tick(
 
                         if !remove { // If there isn't any reason to have this user in purging queue anymore, remove it
                             if data.should_remove_user(now) {
-                                if let Ok(result) = mongodb.delete_purge_user(data).await {
-                                    if result.deleted_count > 0 {
-                                        log::info!("Robot {:?} has remove user {:?} from purging queue (Clean)", robot.data.name, user.display_name);
+                                match mongodb.delete_purge_user(data).await {
+                                    Ok(result) => {
+                                        if result.deleted_count > 0 {
+                                            log::info!("Robot {:?} has remove user {:?} from purging queue (Clean)", robot.data.name, user.display_name);
+                                        }
+                                    },
+                                    Err(error) => {
+                                        log::error!("Robot {:?} failed to remove user {:?} from purging queue (Clean)({})", robot.data.name, user.display_name, error);
                                     }
                                 }
                             }

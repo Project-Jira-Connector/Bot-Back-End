@@ -113,6 +113,19 @@ impl Client {
             .await;
     }
 
+    pub async fn get_purge_log(
+        &self,
+    ) -> Result<Vec<models::purge::PurgeLog>, mongodb::error::Error> {
+        return futures::TryStreamExt::try_collect(
+            self.client
+                .database("robots")
+                .collection::<models::purge::PurgeLog>("purge_logs")
+                .find(None, None)
+                .await?,
+        )
+        .await;
+    }
+
     pub async fn add_purge_user(
         &self,
         purge: &models::purge::PurgeData,
