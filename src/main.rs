@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scheduler_exit_receiver,
         scheduler_config,
         notification_config,
-        reqwest_client,
+        reqwest_client.clone(),
         mongodb_client.clone(),
         rusoto_client.clone(),
     ));
