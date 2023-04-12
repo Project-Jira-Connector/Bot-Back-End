@@ -14,6 +14,29 @@ impl Client {
         };
     }
 
+    pub async fn check_jira_credentials(
+        &self,
+        robot: &models::robot::Robot,
+    ) -> Result<bool, reqwest::Error> {
+        let response = self
+            .client
+            .get("https://telkomdevelopernetwork.atlassian.net/rest/api/3/myself")
+            .header(
+                reqwest::header::AUTHORIZATION,
+                format!(
+                    "Basic {}",
+                    base64::encode(&format!(
+                        "{}:{}",
+                        robot.config.credential.platform_email,
+                        robot.config.credential.platform_api_key
+                    ))
+                ),
+            )
+            .send()
+            .await?;
+        return Ok(response.status() == reqwest::StatusCode::OK);
+    }
+
     pub async fn get_jira_users(&self, cloud_session_token: &String) -> Vec<models::jira::User> {
         let mut users: Vec<models::jira::User> = vec![];
         let mut start_index = 1;
@@ -61,7 +84,14 @@ impl Client {
             ))
             .header(
                 reqwest::header::AUTHORIZATION,
-                format!("Basic {}", base64::encode(&format!("{}:{}", robot.config.credential.platform_email, robot.config.credential.platform_api_key))),
+                format!(
+                    "Basic {}",
+                    base64::encode(&format!(
+                        "{}:{}",
+                        robot.config.credential.platform_email,
+                        robot.config.credential.platform_api_key
+                    ))
+                ),
             )
             .send()
             .await;

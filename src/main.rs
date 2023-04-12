@@ -42,6 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         actix_web::App::new()
             .wrap(actix_cors::Cors::permissive())
             .wrap(actix_web::middleware::Logger::default())
+            .app_data(actix_web::web::Data::new(reqwest_client.clone()))
             .app_data(actix_web::web::Data::new(mongodb_client.clone()))
             .app_data(actix_web::web::Data::new(rusoto_client.clone()))
             .app_data(actix_web::web::JsonConfig::default().error_handler(errors::handler::json))

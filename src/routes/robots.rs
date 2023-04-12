@@ -79,6 +79,40 @@ pub async fn post(
 ) -> Result<actix_web::HttpResponse, actix_web::Error> {
     let mut robot = robot_json.into_inner();
 
+    let reqwest = request
+        .app_data::<actix_web::web::Data<clients::reqwest::Client>>()
+        .ok_or(errors::error::Error::new(
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "Reqwest client not found".to_string(),
+        ))?;
+
+    let valid_credential =
+        reqwest
+            .check_jira_credentials(&robot)
+            .await
+            .or(Err(errors::error::Error::new(
+                actix_web::http::StatusCode::UNAUTHORIZED,
+                "Invalid credentials".to_string(),
+            )))?;
+    if !valid_credential {
+        return Err(errors::error::Error::new(
+            actix_web::http::StatusCode::UNAUTHORIZED,
+            "Invalid credentials".to_string(),
+        )
+        .into());
+    }
+
+    let users = reqwest
+        .get_jira_users(&robot.config.credential.cloud_session_token)
+        .await;
+    if users.is_empty() {
+        return Err(errors::error::Error::new(
+            actix_web::http::StatusCode::UNAUTHORIZED,
+            "Invalid cloud session token".to_string(),
+        )
+        .into());
+    }
+
     let mongodb = request
         .app_data::<actix_web::web::Data<clients::mongodb::Client>>()
         .ok_or(errors::error::Error::new(
@@ -115,6 +149,40 @@ pub async fn patch(
         actix_web::http::StatusCode::BAD_REQUEST,
         "'_id' can't be 'None'".to_string(),
     ))?;
+
+    let reqwest = request
+        .app_data::<actix_web::web::Data<clients::reqwest::Client>>()
+        .ok_or(errors::error::Error::new(
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "Reqwest client not found".to_string(),
+        ))?;
+
+    let valid_credential =
+        reqwest
+            .check_jira_credentials(&robot)
+            .await
+            .or(Err(errors::error::Error::new(
+                actix_web::http::StatusCode::UNAUTHORIZED,
+                "Invalid credentials".to_string(),
+            )))?;
+    if !valid_credential {
+        return Err(errors::error::Error::new(
+            actix_web::http::StatusCode::UNAUTHORIZED,
+            "Invalid credentials".to_string(),
+        )
+        .into());
+    }
+
+    let users = reqwest
+        .get_jira_users(&robot.config.credential.cloud_session_token)
+        .await;
+    if users.is_empty() {
+        return Err(errors::error::Error::new(
+            actix_web::http::StatusCode::UNAUTHORIZED,
+            "Invalid cloud session token".to_string(),
+        )
+        .into());
+    }
 
     let mongodb = request
         .app_data::<actix_web::web::Data<clients::mongodb::Client>>()
